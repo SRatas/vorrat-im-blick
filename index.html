@@ -62,7 +62,20 @@
     .privacy { margin-top: .9rem; color: var(--muted); font-size: .84rem; }
     footer { border-top: 1px solid var(--line); padding: 1rem 0 2rem; color: var(--muted); font-size: .82rem; }
     #status { min-height: 1.4em; margin: .6rem 0 0; color: var(--green-dark); font-size: .86rem; }
-    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } header { padding-top: 1.5rem; } }
+    @media (max-width: 760px) {
+      .layout { grid-template-columns: 1fr; }
+      header { padding-top: 1.5rem; }
+      .table-wrap { overflow: visible; border: 0; }
+      table { display: block; min-width: 0; }
+      thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+      tbody { display: grid; gap: .7rem; }
+      tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--line); border-radius: .7rem; background: white; }
+      tbody td { min-width: 0; overflow-wrap: anywhere; padding: .55rem .65rem; border-bottom: 1px solid #e6e9e2; }
+      tbody td:first-child { grid-column: 1 / -1; background: #edf2e9; font-weight: 720; }
+      tbody td:first-child small { font-weight: 400; }
+      tbody td:not(:first-child):not(.row-action)::before { display: block; margin-bottom: .1rem; color: var(--muted); font-size: .72rem; font-weight: 650; content: attr(data-label); }
+      tbody td.row-action { grid-column: 1 / -1; display: flex; justify-content: flex-end; border-bottom: 0; }
+    }
     @media print {
       @page { size: landscape; margin: 12mm; }
       body { background: white; font-size: 10pt; }
@@ -157,7 +170,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.4.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.5.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -386,8 +399,9 @@
         status.textContent = `${unique.length} Einträge wiederhergestellt; ${restored.length - unique.length} identische übersprungen${skipped ? `, ${skipped} unlesbare ausgelassen` : ""}. Vorhandene Einträge blieben erhalten.`;
       }
 
-      function cell(text) {
+      function cell(text, label) {
         const td = document.createElement("td");
+        if (label) td.dataset.label = label;
         td.textContent = text || "—";
         return td;
       }
@@ -404,8 +418,9 @@
             note.textContent = item.note;
             name.append(note);
           }
-          tr.append(name, cell(item.quantity), cell(item.location), cell(item.added), cell(item.packageDate));
+          tr.append(name, cell(item.quantity, "Menge"), cell(item.location, "Bereich"), cell(item.added, "Eingetragen"), cell(item.packageDate, "Verpackungsdatum"));
           const badgeCell = document.createElement("td");
+          badgeCell.dataset.label = "Status";
           if (item.soon) {
             const badge = document.createElement("span");
             badge.className = "use-soon";
@@ -415,6 +430,7 @@
           tr.append(badgeCell);
           const action = document.createElement("td");
           action.className = "row-action";
+          action.dataset.label = "Aktion";
           const remove = document.createElement("button");
           remove.className = "danger row-delete";
           remove.type = "button";
