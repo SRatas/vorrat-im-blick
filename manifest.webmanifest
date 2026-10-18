@@ -1,0 +1,26 @@
+{
+  "name": "Vorrat im Blick",
+  "short_name": "Vorrat",
+  "description": "Lokaler Planer für Vorräte und Gefrierfach.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f4ed",
+  "theme_color": "#153d33",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
+
