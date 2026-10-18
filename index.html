@@ -60,6 +60,8 @@
     .row-delete { padding: .28rem .5rem; }
     .empty { padding: 1.4rem; color: var(--muted); text-align: center; }
     .privacy { margin-top: .9rem; color: var(--muted); font-size: .84rem; }
+    .backup-reminder { margin: .9rem 0 0; }
+    .backup-reminder .actions { margin-top: .6rem; }
     footer { border-top: 1px solid var(--line); padding: 1rem 0 2rem; color: var(--muted); font-size: .82rem; }
     #status { min-height: 1.4em; margin: .6rem 0 0; color: var(--green-dark); font-size: .86rem; }
     #status.error { color: var(--orange); font-weight: 700; }
@@ -84,7 +86,7 @@
       .eyebrow, header p:last-child { color: var(--muted); }
       main { padding: .4rem 0; }
       .layout { display: block; }
-      .entry-card, .toolbar, .privacy, footer, .notice .screen-only, .row-action { display: none !important; }
+      .entry-card, .toolbar, .privacy, footer, .backup-reminder, .notice .screen-only, .row-action { display: none !important; }
       .card { border: 0; padding: 0; box-shadow: none; }
       .table-wrap { overflow: visible; border-color: #888; }
       table { min-width: 0; font-size: 9pt; }
@@ -159,6 +161,11 @@
           </table>
           <div class="empty" id="empty">Noch keine Einträge. Füge links den ersten hinzu.</div>
         </div>
+        <aside class="notice backup-reminder" id="backup-reminder" aria-live="polite" hidden>
+          <strong id="backup-reminder-title"></strong>
+          <p id="backup-reminder-text"></p>
+          <div class="actions"><button class="secondary" id="backup-now" type="button">CSV jetzt sichern</button></div>
+        </aside>
         <p class="privacy">* Das Verpackungsdatum ist eine reine Nutzereingabe. Die Liste wird nach Möglichkeit im lokalen Browserspeicher dieses Geräts gesichert. Nutze „CSV sichern“ als Sicherungskopie und „Sicherung wiederherstellen“, um CSV- oder Wiederherstellungsdateien einzulesen.</p>
         <div class="actions screen-only">
           <button class="secondary" id="export" type="button">CSV sichern</button>
@@ -171,13 +178,14 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.7.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.8.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
     (() => {
       const STORAGE_KEY = "vorrat-im-blick.items.v1";
       const RECOVERY_PREFIX = `${STORAGE_KEY}.recovery.`;
+      const BACKUP_KEY = `${STORAGE_KEY}.last-backup.v1`;
       const form = document.getElementById("item-form");
       const list = document.getElementById("items");
       const empty = document.getElementById("empty");
@@ -186,12 +194,29 @@
       const storageWarning = document.getElementById("storage-warning");
       const storageWarningText = document.getElementById("storage-warning-text");
       const recoveryButton = document.getElementById("download-recovery");
+      const backupReminder = document.getElementById("backup-reminder");
+      const backupReminderTitle = document.getElementById("backup-reminder-title");
+      const backupReminderText = document.getElementById("backup-reminder-text");
       let recoveryRaw = "";
       let entries = readEntries();
+      let lastBackupAt = readBackupTimestamp();
 
       function setStatus(message, isError = false) {
         status.textContent = message;
         status.classList.toggle("error", isError);
+      }
+
+      function readBackupTimestamp() {
+        try { return Number(localStorage.getItem(BACKUP_KEY)) || 0; }
+        catch { return 0; }
+      }
+
+      function updateBackupReminder() {
+        const due = entries.length > 0 && (!lastBackupAt || Date.now() - lastBackupAt >= 30 * 24 * 60 * 60 * 1000);
+        backupReminder.hidden = !due;
+        if (!due) return;
+        backupReminderTitle.textContent = lastBackupAt ? "Deine letzte Sicherung ist mindestens 30 Tage alt." : "Für den aktuellen Listenstand gibt es noch keine CSV-Sicherung.";
+        backupReminderText.textContent = "Die Liste liegt nur in diesem Browser. Erstelle eine CSV-Datei, damit du sie nach einem Gerätewechsel oder Datenverlust wiederherstellen kannst.";
       }
 
       function showStorageWarning(message, raw = "") {
@@ -246,6 +271,8 @@
       function persist() {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+          lastBackupAt = 0;
+          try { localStorage.setItem(BACKUP_KEY, "0"); } catch { /* Die Liste bleibt gespeichert, auch wenn die Sicherungsmarkierung nicht aktualisiert werden kann. */ }
           setStatus("Lokal in diesem Browser gespeichert.");
           return true;
         } catch {
@@ -454,6 +481,7 @@
         }
         empty.hidden = visible.length > 0;
         document.getElementById("count").textContent = `${visible.length} von ${entries.length} Einträgen`;
+        updateBackupReminder();
       }
 
       form.addEventListener("submit", event => {
@@ -499,8 +527,12 @@
         link.download = "vorrat-im-blick.csv";
         link.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        lastBackupAt = entries.length ? Date.now() : 0;
+        try { localStorage.setItem(BACKUP_KEY, String(lastBackupAt)); } catch { /* Der CSV-Download bleibt auch ohne Zeitstempel verfügbar. */ }
+        updateBackupReminder();
         setStatus("CSV-Sicherung wurde lokal erstellt.");
       });
+      document.getElementById("backup-now").addEventListener("click", () => document.getElementById("export").click());
       const importFile = document.getElementById("import-file");
       document.getElementById("import").addEventListener("click", () => importFile.click());
       importFile.addEventListener("change", async () => {
