@@ -1,12 +1,17 @@
 "use strict";
 
-const CACHE_NAME = "vorrat-im-blick-offline-v1";
+const CACHE_NAME = "vorrat-im-blick-offline-v2";
 const APP_SHELL_URL = new URL("./", self.registration.scope).href;
+const APP_SHELL_ASSETS = [
+  APP_SHELL_URL,
+  new URL("manifest.webmanifest", self.registration.scope).href,
+  new URL("icon.svg", self.registration.scope).href
+];
 
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.add(APP_SHELL_URL))
+      .then(cache => cache.addAll(APP_SHELL_ASSETS))
       .then(() => self.skipWaiting())
   );
 });
@@ -23,7 +28,15 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   const request = event.request;
-  if (request.method !== "GET" || request.mode !== "navigate") return;
+  if (request.method !== "GET") return;
+
+  if (APP_SHELL_ASSETS.includes(request.url) && request.mode !== "navigate") {
+    event.respondWith(caches.open(CACHE_NAME)
+      .then(cache => cache.match(request))
+      .then(cached => cached || fetch(request)));
+    return;
+  }
+  if (request.mode !== "navigate") return;
 
   event.respondWith(
     fetch(request)
