@@ -1,11 +1,13 @@
 "use strict";
 
-const CACHE_NAME = "vorrat-im-blick-offline-v2";
+const CACHE_NAME = "vorrat-im-blick-offline-v3";
 const APP_SHELL_URL = new URL("./", self.registration.scope).href;
 const APP_SHELL_ASSETS = [
   APP_SHELL_URL,
   new URL("manifest.webmanifest", self.registration.scope).href,
-  new URL("icon.svg", self.registration.scope).href
+  new URL("icon.svg", self.registration.scope).href,
+  new URL("icon-192.png", self.registration.scope).href,
+  new URL("icon-512.png", self.registration.scope).href
 ];
 
 self.addEventListener("install", event => {
