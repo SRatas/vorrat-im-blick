@@ -68,6 +68,7 @@
     .backup-reminder .actions { margin-top: .6rem; }
     #install-action[hidden] { display: none; }
     #backup-confirmation[hidden] { display: none; }
+    #tab-conflict[hidden] { display: none; }
     .undo-notice:not([hidden]) { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
     .undo-notice p { margin: 0; }
     footer { border-top: 1px solid var(--line); padding: 1rem 0 2rem; color: var(--muted); font-size: .82rem; }
@@ -122,6 +123,11 @@
       <strong>Gespeicherte Daten konnten nicht vollständig gelesen werden.</strong>
       <p id="storage-warning-text">Prüfe die Sicherung, bevor du weitere Änderungen vornimmst.</p>
       <button class="secondary screen-only" id="download-recovery" type="button" hidden>Wiederherstellungskopie herunterladen</button>
+    </aside>
+    <aside class="notice" id="tab-conflict" role="alert" hidden>
+      <strong>Diese Liste wurde in einem anderen Tab geändert.</strong>
+      <p>Dieser Tab speichert keine Änderungen mehr, damit neuere Einträge nicht überschrieben werden. Kopiere zuerst ungespeicherte Formulareingaben und lade danach die aktuelle Liste.</p>
+      <button class="secondary screen-only" id="reload-after-conflict" type="button">Aktuelle Liste laden</button>
     </aside>
 
     <div class="layout">
@@ -201,7 +207,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.15.2 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.16.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -218,6 +224,7 @@
       const search = document.getElementById("search");
       const status = document.getElementById("status");
       const storageWarning = document.getElementById("storage-warning");
+      const tabConflict = document.getElementById("tab-conflict");
       const storageWarningText = document.getElementById("storage-warning-text");
       const recoveryButton = document.getElementById("download-recovery");
       const backupReminder = document.getElementById("backup-reminder");
@@ -234,6 +241,8 @@
       let editingId = null;
       let recoveryRaw = "";
       let entries = readEntries();
+      let lastPersistedRaw = readStoredRaw();
+      let externalConflict = false;
       let deletedEntry = readDeletedEntry();
       let lastBackupAt = readBackupTimestamp();
       let lastExportRequestedAt = readLastExportTimestamp();
@@ -242,6 +251,17 @@
       function setStatus(message, isError = false) {
         status.textContent = message;
         status.classList.toggle("error", isError);
+      }
+
+      function readStoredRaw() {
+        try { return localStorage.getItem(STORAGE_KEY); }
+        catch { return null; }
+      }
+
+      function showTabConflict() {
+        externalConflict = true;
+        tabConflict.hidden = false;
+        setStatus("Ein anderer Tab hat die Liste geändert. Lade erst die aktuelle Liste, bevor du weiterarbeitest.", true);
       }
 
       function readBackupTimestamp() {
@@ -369,6 +389,10 @@
       });
 
       function persist() {
+        if (externalConflict || readStoredRaw() !== lastPersistedRaw) {
+          showTabConflict();
+          return false;
+        }
         const previousBackupAt = lastBackupAt;
         const previousConfirmedAt = lastConfirmedAt;
         let backupMarkerCleared = false;
@@ -382,7 +406,9 @@
             localStorage.removeItem(BACKUP_CONFIRMED_KEY);
             confirmationCleared = true;
           }
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+          const serialized = JSON.stringify(entries);
+          localStorage.setItem(STORAGE_KEY, serialized);
+          lastPersistedRaw = serialized;
           lastBackupAt = 0;
           lastConfirmedAt = 0;
           setStatus("Lokal in diesem Browser gespeichert.");
@@ -398,6 +424,11 @@
           return false;
         }
       }
+
+      window.addEventListener("storage", event => {
+        if (event.key === STORAGE_KEY && event.newValue !== lastPersistedRaw) showTabConflict();
+      });
+      document.getElementById("reload-after-conflict").addEventListener("click", () => window.location.reload());
 
       function parseCsv(text, delimiter) {
         const rows = [];
