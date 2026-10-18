@@ -194,7 +194,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.13.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.13.1 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -380,6 +380,11 @@
         return rows;
       }
 
+      function restoreCsvValue(value) {
+        if (value.startsWith("''")) return value.slice(1);
+        return /^'\s*[=+@-]/.test(value) ? value.slice(1) : value;
+      }
+
       function newId() {
         return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       }
@@ -430,7 +435,7 @@
           const values = rows[index];
           if (values.every(value => value.trim() === "")) continue;
           if (values.length !== headers.length) throw new Error(`Zeile ${index + 2} hat eine unerwartete Spaltenanzahl. Es wurde nichts importiert.`);
-          const name = values[columns.name].trim();
+          const name = restoreCsvValue(values[columns.name]).trim();
           if (!name) throw new Error(`In Zeile ${index + 2} fehlt der Artikelname. Es wurde nichts importiert.`);
           const soonValue = columns.soon < 0 ? "" : values[columns.soon].trim().toLocaleLowerCase("de");
           if (soonValue && !["ja", "nein", "true", "false", "1", "0"].includes(soonValue)) {
@@ -439,11 +444,11 @@
           imported.push({
             id: newId(),
             name,
-            quantity: columns.quantity < 0 ? "" : values[columns.quantity],
-            location: columns.location < 0 ? "" : values[columns.location],
-            added: columns.added < 0 ? "" : values[columns.added],
-            packageDate: columns.packageDate < 0 ? "" : values[columns.packageDate],
-            note: columns.note < 0 ? "" : values[columns.note],
+            quantity: columns.quantity < 0 ? "" : restoreCsvValue(values[columns.quantity]),
+            location: columns.location < 0 ? "" : restoreCsvValue(values[columns.location]),
+            added: columns.added < 0 ? "" : restoreCsvValue(values[columns.added]),
+            packageDate: columns.packageDate < 0 ? "" : restoreCsvValue(values[columns.packageDate]),
+            note: columns.note < 0 ? "" : restoreCsvValue(values[columns.note]),
             soon: ["ja", "true", "1"].includes(soonValue)
           });
         }
@@ -640,7 +645,8 @@
         const columns = ["Artikel", "Menge/Portion", "Bereich/Fach", "Eingetragen am", "Datum laut Verpackung", "Notiz", "Manuell bald verwenden"];
         const quote = value => {
           let text = String(value ?? "");
-          if (/^\s*[=+@-]/.test(text)) text = `'${text}`;
+          if (text.startsWith("'")) text = `'${text}`;
+          else if (/^\s*[=+@-]/.test(text)) text = `'${text}`;
           return `"${text.replaceAll('"', '""')}"`;
         };
         const csv = [columns.map(quote).join(";"), ...entries.map(item => [item.name, item.quantity, item.location, item.added, item.packageDate, item.note, item.soon ? "Ja" : "Nein"].map(quote).join(";"))].join("\r\n");
