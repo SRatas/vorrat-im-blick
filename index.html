@@ -159,6 +159,9 @@
       <section class="card" aria-labelledby="list-title">
         <h2 id="list-title">Deine Liste</h2>
         <p class="privacy" id="backup-status" aria-live="polite"></p>
+        <div class="actions screen-only" id="backup-confirmation" hidden>
+          <button class="secondary" id="confirm-backup" type="button">Ich habe die CSV-Datei geprüft und gespeichert</button>
+        </div>
         <aside class="notice backup-reminder" id="backup-reminder" aria-live="polite" hidden>
           <strong id="backup-reminder-title"></strong>
           <p id="backup-reminder-text"></p>
@@ -197,7 +200,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.15.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.15.1 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -206,6 +209,7 @@
       const RECOVERY_PREFIX = `${STORAGE_KEY}.recovery.`;
       const BACKUP_KEY = `${STORAGE_KEY}.last-backup.v1`;
       const BACKUP_HISTORY_KEY = `${STORAGE_KEY}.last-export-request.v1`;
+      const BACKUP_CONFIRMED_KEY = `${STORAGE_KEY}.confirmed-backup.v1`;
       const UNDO_KEY = `${STORAGE_KEY}.last-deleted.v1`;
       const form = document.getElementById("item-form");
       const list = document.getElementById("items");
@@ -219,6 +223,8 @@
       const backupReminderTitle = document.getElementById("backup-reminder-title");
       const backupReminderText = document.getElementById("backup-reminder-text");
       const backupStatus = document.getElementById("backup-status");
+      const backupConfirmation = document.getElementById("backup-confirmation");
+      const confirmBackupButton = document.getElementById("confirm-backup");
       const undoNotice = document.getElementById("undo-notice");
       const undoMessage = document.getElementById("undo-message");
       const formTitle = document.getElementById("form-title");
@@ -230,6 +236,7 @@
       let deletedEntry = readDeletedEntry();
       let lastBackupAt = readBackupTimestamp();
       let lastExportRequestedAt = readLastExportTimestamp();
+      let lastConfirmedAt = readConfirmedBackupTimestamp();
 
       function setStatus(message, isError = false) {
         status.textContent = message;
@@ -244,6 +251,11 @@
       function readLastExportTimestamp() {
         try { return Number(localStorage.getItem(BACKUP_HISTORY_KEY)) || readBackupTimestamp(); }
         catch { return readBackupTimestamp(); }
+      }
+
+      function readConfirmedBackupTimestamp() {
+        try { return Number(localStorage.getItem(BACKUP_CONFIRMED_KEY)) || 0; }
+        catch { return 0; }
       }
 
       function storeDeletedEntry(record) {
@@ -283,20 +295,27 @@
       }
 
       function updateBackupReminder() {
-        const due = entries.length > 0 && (!lastBackupAt || Date.now() - lastBackupAt >= 30 * 24 * 60 * 60 * 1000);
+        const confirmedForCurrentExport = lastBackupAt > 0 && lastConfirmedAt === lastBackupAt;
+        const overdue = confirmedForCurrentExport && Date.now() - lastConfirmedAt >= 30 * 24 * 60 * 60 * 1000;
+        const due = entries.length > 0 && (!confirmedForCurrentExport || overdue);
         backupReminder.hidden = !due;
+        backupConfirmation.hidden = !entries.length || !lastBackupAt || confirmedForCurrentExport;
         if (!entries.length) {
           backupStatus.textContent = "Noch keine Einträge zum Sichern.";
+        } else if (confirmedForCurrentExport) {
+          backupStatus.textContent = `Du hast bestätigt, dass der CSV-Export vom ${new Date(lastConfirmedAt).toLocaleString("de-DE")} gespeichert wurde. Die Liste ist seitdem unverändert.`;
         } else if (lastBackupAt) {
-          backupStatus.textContent = `CSV-Export für den aktuellen Listenstand am ${new Date(lastBackupAt).toLocaleString("de-DE")} gestartet. Prüfe, ob die Datei gespeichert wurde.`;
+          backupStatus.textContent = `CSV-Export am ${new Date(lastBackupAt).toLocaleString("de-DE")} angestoßen. Prüfe die Datei und bestätige die Speicherung.`;
         } else if (lastExportRequestedAt) {
-          backupStatus.textContent = `Letzter CSV-Export am ${new Date(lastExportRequestedAt).toLocaleString("de-DE")} gestartet; aktuelle Änderungen oder der Sicherungsstatus sind noch offen.`;
+          backupStatus.textContent = `Letzter CSV-Export am ${new Date(lastExportRequestedAt).toLocaleString("de-DE")} angestoßen; der aktuelle Listenstand ist noch nicht bestätigt.`;
         } else {
           backupStatus.textContent = "Für den aktuellen Listenstand wurde noch kein CSV-Export gestartet.";
         }
         if (!due) return;
-        backupReminderTitle.textContent = lastBackupAt ? "Der letzte CSV-Export ist mindestens 30 Tage alt." : "Der aktuelle Listenstand ist noch nicht exportiert.";
-        backupReminderText.textContent = "Die Liste liegt nur in diesem Browser. Starte den CSV-Export und prüfe, ob die Datei im Download-Ordner gespeichert wurde.";
+        backupReminderTitle.textContent = overdue ? "Die bestätigte CSV-Sicherung ist mindestens 30 Tage alt." : lastBackupAt ? "Die CSV-Datei ist noch nicht als gespeichert bestätigt." : lastExportRequestedAt ? "Der aktuelle Listenstand ist seit dem letzten Export nicht bestätigt." : "Der aktuelle Listenstand ist noch nicht exportiert.";
+        backupReminderText.textContent = lastBackupAt && !confirmedForCurrentExport
+          ? "Prüfe, ob die CSV-Datei im Download-Ordner liegt. Bestätige die Speicherung hier oder starte den Export erneut."
+          : "Die Liste liegt nur in diesem Browser. Starte den CSV-Export und prüfe, ob die Datei im Download-Ordner gespeichert wurde.";
       }
 
       function showStorageWarning(message, raw = "") {
@@ -349,13 +368,31 @@
       });
 
       function persist() {
+        const previousBackupAt = lastBackupAt;
+        const previousConfirmedAt = lastConfirmedAt;
+        let backupMarkerCleared = false;
+        let confirmationCleared = false;
         try {
+          if (previousBackupAt) {
+            localStorage.setItem(BACKUP_KEY, "0");
+            backupMarkerCleared = true;
+          }
+          if (previousConfirmedAt) {
+            localStorage.removeItem(BACKUP_CONFIRMED_KEY);
+            confirmationCleared = true;
+          }
           localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
           lastBackupAt = 0;
-          try { localStorage.setItem(BACKUP_KEY, "0"); } catch { /* Die Liste bleibt gespeichert, auch wenn die Sicherungsmarkierung nicht aktualisiert werden kann. */ }
+          lastConfirmedAt = 0;
           setStatus("Lokal in diesem Browser gespeichert.");
           return true;
         } catch {
+          if (backupMarkerCleared) {
+            try { localStorage.setItem(BACKUP_KEY, String(previousBackupAt)); } catch { lastBackupAt = 0; }
+          }
+          if (confirmationCleared) {
+            try { localStorage.setItem(BACKUP_CONFIRMED_KEY, String(previousConfirmedAt)); } catch { lastConfirmedAt = 0; }
+          }
           setStatus("Speichern im Browser war nicht möglich. Die Änderung wurde zurückgenommen; prüfe die Browsereinstellungen und versuche es erneut.", true);
           return false;
         }
@@ -718,7 +755,7 @@
         link.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
         if (entries.length) {
-          const requestedAt = Date.now();
+          const requestedAt = Math.max(Date.now(), lastExportRequestedAt + 1, lastBackupAt + 1);
           lastExportRequestedAt = requestedAt;
           try {
             localStorage.setItem(BACKUP_HISTORY_KEY, String(requestedAt));
@@ -730,6 +767,17 @@
         }
         updateBackupReminder();
         setStatus(entries.length ? "CSV-Export wurde angestoßen. Prüfe, ob die Datei im Download-Ordner gespeichert wurde." : "CSV-Export wurde angestoßen.");
+      });
+      confirmBackupButton.addEventListener("click", () => {
+        if (!entries.length || !lastBackupAt) return;
+        try {
+          localStorage.setItem(BACKUP_CONFIRMED_KEY, String(lastBackupAt));
+          lastConfirmedAt = lastBackupAt;
+          updateBackupReminder();
+          setStatus("Du hast bestätigt, dass die CSV-Datei gespeichert wurde.");
+        } catch {
+          setStatus("Die Bestätigung konnte in diesem Browser nicht gespeichert werden.", true);
+        }
       });
       document.getElementById("backup-now").addEventListener("click", () => document.getElementById("export").click());
       const importFile = document.getElementById("import-file");
