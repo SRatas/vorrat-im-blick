@@ -1,0 +1,36 @@
+name: Rückmeldung zu Vorrat im Blick
+description: Melde ein Problem oder teile einen Verbesserungsvorschlag.
+title: "Rückmeldung: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dieses Formular wird öffentlich bei GitHub eingereicht. Bitte keine Namen, Adressen, Vorratslisten, Zugangsdaten oder andere persönliche Daten angeben. Die App überträgt keine Listeneinträge in dieses Formular.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Worum geht es?
+      options:
+        - Fehler oder unerwartetes Verhalten
+        - Bedienung oder Verständlichkeit
+        - Verbesserungsidee
+        - Sonstiges
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Was ist passiert oder was wäre hilfreich?
+      description: Eine kurze Beschreibung reicht. Keine privaten oder konkreten Vorratsdaten angeben.
+      placeholder: Beschreibe das Problem oder den gewünschten Nutzen.
+    validations:
+      required: false
+  - type: input
+    id: browser
+    attributes:
+      label: Browser und Gerät (optional)
+      placeholder: z. B. Firefox auf Windows
+    validations:
+      required: false
+
