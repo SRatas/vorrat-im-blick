@@ -207,7 +207,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.16.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.16.1 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -243,6 +243,7 @@
       let entries = readEntries();
       let lastPersistedRaw = readStoredRaw();
       let externalConflict = false;
+      let saveInProgress = false;
       let deletedEntry = readDeletedEntry();
       let lastBackupAt = readBackupTimestamp();
       let lastExportRequestedAt = readLastExportTimestamp();
@@ -388,31 +389,46 @@
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       });
 
-      function persist() {
+      async function persist() {
+        if (saveInProgress) {
+          setStatus("Ein Speichervorgang läuft bereits. Warte kurz und versuche es erneut.", true);
+          return false;
+        }
         if (externalConflict || readStoredRaw() !== lastPersistedRaw) {
           showTabConflict();
           return false;
         }
+        saveInProgress = true;
         const previousBackupAt = lastBackupAt;
         const previousConfirmedAt = lastConfirmedAt;
         let backupMarkerCleared = false;
         let confirmationCleared = false;
         try {
-          if (previousBackupAt) {
-            localStorage.setItem(BACKUP_KEY, "0");
-            backupMarkerCleared = true;
-          }
-          if (previousConfirmedAt) {
-            localStorage.removeItem(BACKUP_CONFIRMED_KEY);
-            confirmationCleared = true;
-          }
-          const serialized = JSON.stringify(entries);
-          localStorage.setItem(STORAGE_KEY, serialized);
-          lastPersistedRaw = serialized;
-          lastBackupAt = 0;
-          lastConfirmedAt = 0;
-          setStatus("Lokal in diesem Browser gespeichert.");
-          return true;
+          const write = () => {
+            if (externalConflict || readStoredRaw() !== lastPersistedRaw) {
+              showTabConflict();
+              return false;
+            }
+            if (previousBackupAt) {
+              localStorage.setItem(BACKUP_KEY, "0");
+              backupMarkerCleared = true;
+            }
+            if (previousConfirmedAt) {
+              localStorage.removeItem(BACKUP_CONFIRMED_KEY);
+              confirmationCleared = true;
+            }
+            const serialized = JSON.stringify(entries);
+            localStorage.setItem(STORAGE_KEY, serialized);
+            lastPersistedRaw = serialized;
+            lastBackupAt = 0;
+            lastConfirmedAt = 0;
+            setStatus("Lokal in diesem Browser gespeichert.");
+            return true;
+          };
+          const saved = navigator.locks?.request
+            ? await navigator.locks.request("vorrat-im-blick-storage-write", write)
+            : write();
+          return saved;
         } catch {
           if (backupMarkerCleared) {
             try { localStorage.setItem(BACKUP_KEY, String(previousBackupAt)); } catch { lastBackupAt = 0; }
@@ -422,6 +438,8 @@
           }
           setStatus("Speichern im Browser war nicht möglich. Die Änderung wurde zurückgenommen; prüfe die Browsereinstellungen und versuche es erneut.", true);
           return false;
+        } finally {
+          saveInProgress = false;
         }
       }
 
@@ -511,7 +529,7 @@
         document.getElementById("item-name").focus();
       }
 
-      function importCsv(text) {
+      async function importCsv(text) {
         const cleanText = text.replace(/^\uFEFF/, "");
         let rows = parseCsv(cleanText, ";");
         if (!rows[0]?.some(value => value.trim().toLocaleLowerCase("de") === "artikel")) {
@@ -563,7 +581,7 @@
         });
         const previous = entries;
         entries = [...unique, ...entries];
-        if (!persist()) {
+        if (!await persist()) {
           entries = previous;
           render();
           setStatus("Der Import passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.", true);
@@ -574,7 +592,7 @@
         setStatus(`${unique.length} Einträge wiederhergestellt; ${imported.length - unique.length} identische übersprungen. Vorhandene Einträge blieben erhalten.`);
       }
 
-      function importRecoveryJson(text) {
+      async function importRecoveryJson(text) {
         const parsed = JSON.parse(text);
         if (!Array.isArray(parsed)) throw new Error("Die JSON-Datei hat nicht das erwartete Sicherungsformat.");
         const restored = [];
@@ -608,7 +626,7 @@
         });
         const previous = entries;
         entries = [...unique, ...entries];
-        if (!persist()) {
+        if (!await persist()) {
           entries = previous;
           render();
           setStatus("Die Sicherung passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.", true);
@@ -664,7 +682,7 @@
           remove.type = "button";
           remove.textContent = "Löschen";
           remove.setAttribute("aria-label", `${item.name} löschen`);
-          remove.addEventListener("click", () => {
+          remove.addEventListener("click", async () => {
             const index = entries.findIndex(row => row.id === item.id);
             const removed = entries[index];
             const previousUndo = deletedEntry;
@@ -675,7 +693,7 @@
             }
             const previous = entries;
             entries = entries.filter(row => row.id !== item.id);
-            if (!persist()) {
+            if (!await persist()) {
               entries = previous;
               deletedEntry = previousUndo;
               storeDeletedEntry(previousUndo);
@@ -695,7 +713,7 @@
         updateBackupReminder();
       }
 
-      form.addEventListener("submit", event => {
+      form.addEventListener("submit", async event => {
         event.preventDefault();
         const data = new FormData(form);
         const name = String(data.get("name") || "").trim();
@@ -722,7 +740,7 @@
         } else {
           entries = [updatedEntry, ...entries];
         }
-        if (!persist()) {
+        if (!await persist()) {
           entries = previous;
           render();
           return;
@@ -820,15 +838,15 @@
         try {
           if (file.size > 10 * 1024 * 1024) throw new Error("Die Datei ist größer als 10 MB.");
           const text = await file.text();
-          if (file.name.toLocaleLowerCase("de").endsWith(".json") || file.type === "application/json") importRecoveryJson(text);
-          else importCsv(text);
+          if (file.name.toLocaleLowerCase("de").endsWith(".json") || file.type === "application/json") await importRecoveryJson(text);
+          else await importCsv(text);
         } catch (error) {
           setStatus(`Sicherung nicht importiert: ${error.message}`, true);
         } finally {
           importFile.value = "";
         }
       });
-      document.getElementById("clear").addEventListener("click", () => {
+      document.getElementById("clear").addEventListener("click", async () => {
         if (!entries.length) return;
         if (!window.confirm("Wirklich alle lokal gespeicherten Einträge löschen? Eine CSV-Sicherung wird dadurch nicht gelöscht.")) return;
         const previous = entries;
@@ -838,7 +856,7 @@
           return;
         }
         entries = [];
-        if (!persist()) {
+        if (!await persist()) {
           entries = previous;
           deletedEntry = previousUndo;
           storeDeletedEntry(previousUndo);
@@ -850,13 +868,13 @@
         render();
       });
 
-      document.getElementById("undo-delete").addEventListener("click", () => {
+      document.getElementById("undo-delete").addEventListener("click", async () => {
         if (!deletedEntry) return;
         const previous = entries;
         const { item, index } = deletedEntry;
         const insertionPoint = Math.min(index, entries.length);
         entries = [...entries.slice(0, insertionPoint), item, ...entries.slice(insertionPoint)];
-        if (!persist()) {
+        if (!await persist()) {
           entries = previous;
           render();
           return;
