@@ -62,6 +62,7 @@
     .privacy { margin-top: .9rem; color: var(--muted); font-size: .84rem; }
     footer { border-top: 1px solid var(--line); padding: 1rem 0 2rem; color: var(--muted); font-size: .82rem; }
     #status { min-height: 1.4em; margin: .6rem 0 0; color: var(--green-dark); font-size: .86rem; }
+    #status.error { color: var(--orange); font-weight: 700; }
     @media (max-width: 760px) {
       .layout { grid-template-columns: 1fr; }
       header { padding-top: 1.5rem; }
@@ -170,7 +171,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.6.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.7.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -187,6 +188,11 @@
       const recoveryButton = document.getElementById("download-recovery");
       let recoveryRaw = "";
       let entries = readEntries();
+
+      function setStatus(message, isError = false) {
+        status.textContent = message;
+        status.classList.toggle("error", isError);
+      }
 
       function showStorageWarning(message, raw = "") {
         storageWarning.hidden = false;
@@ -240,10 +246,10 @@
       function persist() {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-          status.textContent = "Lokal in diesem Browser gespeichert.";
+          setStatus("Lokal in diesem Browser gespeichert.");
           return true;
         } catch {
-          status.textContent = "Speichern im Browser war nicht möglich. Sichere die Liste als CSV oder prüfe die Browsereinstellungen.";
+          setStatus("Speichern im Browser war nicht möglich. Die Änderung wurde zurückgenommen; prüfe die Browsereinstellungen und versuche es erneut.", true);
           return false;
         }
       }
@@ -346,12 +352,12 @@
         if (!persist()) {
           entries = previous;
           render();
-          status.textContent = "Der Import passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.";
+          setStatus("Der Import passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.", true);
           return;
         }
         render();
         storageWarning.hidden = true;
-        status.textContent = `${unique.length} Einträge wiederhergestellt; ${imported.length - unique.length} identische übersprungen. Vorhandene Einträge blieben erhalten.`;
+        setStatus(`${unique.length} Einträge wiederhergestellt; ${imported.length - unique.length} identische übersprungen. Vorhandene Einträge blieben erhalten.`);
       }
 
       function importRecoveryJson(text) {
@@ -391,12 +397,12 @@
         if (!persist()) {
           entries = previous;
           render();
-          status.textContent = "Die Sicherung passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.";
+          setStatus("Die Sicherung passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.", true);
           return;
         }
         render();
         storageWarning.hidden = true;
-        status.textContent = `${unique.length} Einträge wiederhergestellt; ${restored.length - unique.length} identische übersprungen${skipped ? `, ${skipped} unlesbare ausgelassen` : ""}. Vorhandene Einträge blieben erhalten.`;
+        setStatus(`${unique.length} Einträge wiederhergestellt; ${restored.length - unique.length} identische übersprungen${skipped ? `, ${skipped} unlesbare ausgelassen` : ""}. Vorhandene Einträge blieben erhalten.`, skipped > 0);
       }
 
       function cell(text, label) {
@@ -493,7 +499,7 @@
         link.download = "vorrat-im-blick.csv";
         link.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        status.textContent = "CSV-Sicherung wurde lokal erstellt.";
+        setStatus("CSV-Sicherung wurde lokal erstellt.");
       });
       const importFile = document.getElementById("import-file");
       document.getElementById("import").addEventListener("click", () => importFile.click());
@@ -506,7 +512,7 @@
           if (file.name.toLocaleLowerCase("de").endsWith(".json") || file.type === "application/json") importRecoveryJson(text);
           else importCsv(text);
         } catch (error) {
-          status.textContent = `Sicherung nicht importiert: ${error.message}`;
+          setStatus(`Sicherung nicht importiert: ${error.message}`, true);
         } finally {
           importFile.value = "";
         }
