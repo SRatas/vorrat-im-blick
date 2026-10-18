@@ -170,7 +170,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.5.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.6.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -437,8 +437,9 @@
           remove.textContent = "Löschen";
           remove.setAttribute("aria-label", `${item.name} löschen`);
           remove.addEventListener("click", () => {
+            const previous = entries;
             entries = entries.filter(row => row.id !== item.id);
-            persist();
+            if (!persist()) entries = previous;
             render();
           });
           action.append(remove);
@@ -454,7 +455,8 @@
         const data = new FormData(form);
         const name = String(data.get("name") || "").trim();
         if (!name) return;
-        entries.unshift({
+        const previous = entries;
+        entries = [{
           id: newId(),
           name,
           quantity: String(data.get("quantity") || "").trim(),
@@ -463,8 +465,12 @@
           packageDate: String(data.get("packageDate") || ""),
           note: String(data.get("note") || "").trim(),
           soon: document.getElementById("item-soon").checked
-        });
-        persist();
+        }, ...entries];
+        if (!persist()) {
+          entries = previous;
+          render();
+          return;
+        }
         form.reset();
         render();
         document.getElementById("item-name").focus();
@@ -508,8 +514,9 @@
       document.getElementById("clear").addEventListener("click", () => {
         if (!entries.length) return;
         if (!window.confirm("Wirklich alle lokal gespeicherten Einträge löschen? Eine CSV-Sicherung wird dadurch nicht gelöscht.")) return;
+        const previous = entries;
         entries = [];
-        persist();
+        if (!persist()) entries = previous;
         render();
       });
 
