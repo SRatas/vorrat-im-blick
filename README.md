@@ -32,7 +32,7 @@ Nutze die CSV-Sicherung regelmäßig. Wenn gespeicherte Daten unlesbar sind, blo
 
 ## Rückmeldung
 
-Über den Link in der App kannst du freiwillig eine Rückmeldung als öffentliches GitHub-Issue senden. Der Link übernimmt keine Einträge aus deiner Liste. GitHub zeigt eingereichte Rückmeldungen öffentlich an und verlangt zum Absenden ein GitHub-Konto. Bitte füge keine Vorrats- oder persönlichen Daten ein.
+Du kannst [direkt eine Rückmeldung senden](https://github.com/SRatas/vorrat-im-blick/issues/new?template=rueckmeldung.yml) oder den Rückmeldelink in der App nutzen. Der Link übernimmt keine Einträge aus deiner Liste. GitHub zeigt eingereichte Rückmeldungen öffentlich an und verlangt zum Absenden ein GitHub-Konto. Bitte füge keine Vorrats- oder persönlichen Daten ein.
 
 ## Entwicklung
 
