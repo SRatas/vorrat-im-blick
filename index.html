@@ -194,7 +194,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.13.2 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.13.3 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -389,12 +389,22 @@
         return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       }
 
+      function setTodayDate() {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        form.elements.added.defaultValue = today;
+        form.elements.added.value = today;
+      }
+
       function stopEditing(clear = true) {
         editingId = null;
         formTitle.textContent = "Eintrag hinzufügen";
         saveEntryButton.textContent = "Eintrag speichern";
         cancelEditButton.hidden = true;
-        if (clear) form.reset();
+        if (clear) {
+          form.reset();
+          setTodayDate();
+        }
       }
 
       function startEditing(item) {
@@ -719,6 +729,7 @@
       });
 
       render();
+      setTodayDate();
     })();
     (() => {
       const info = document.getElementById("offline-info");
