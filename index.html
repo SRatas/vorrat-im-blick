@@ -62,6 +62,8 @@
     .privacy { margin-top: .9rem; color: var(--muted); font-size: .84rem; }
     .backup-reminder { margin: .9rem 0 0; }
     .backup-reminder .actions { margin-top: .6rem; }
+    .undo-notice:not([hidden]) { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+    .undo-notice p { margin: 0; }
     footer { border-top: 1px solid var(--line); padding: 1rem 0 2rem; color: var(--muted); font-size: .82rem; }
     #status { min-height: 1.4em; margin: .6rem 0 0; color: var(--green-dark); font-size: .86rem; }
     #status.error { color: var(--orange); font-weight: 700; }
@@ -86,7 +88,7 @@
       .eyebrow, header p:last-child { color: var(--muted); }
       main { padding: .4rem 0; }
       .layout { display: block; }
-      .entry-card, .toolbar, .privacy, footer, .backup-reminder, .notice .screen-only, .row-action { display: none !important; }
+      .entry-card, .toolbar, .privacy, footer, .backup-reminder, .undo-notice, .notice .screen-only, .row-action { display: none !important; }
       .card { border: 0; padding: 0; box-shadow: none; }
       .table-wrap { overflow: visible; border-color: #888; }
       table { min-width: 0; font-size: 9pt; }
@@ -150,6 +152,10 @@
 
       <section class="card" aria-labelledby="list-title">
         <h2 id="list-title">Deine Liste</h2>
+        <aside class="notice undo-notice" id="undo-notice" role="status" aria-live="polite" hidden>
+          <p id="undo-message">Eintrag gelöscht.</p>
+          <button class="secondary" id="undo-delete" type="button">Rückgängig</button>
+        </aside>
         <div class="toolbar">
           <input class="search" id="search" type="search" placeholder="Liste durchsuchen …" aria-label="Liste durchsuchen">
           <span class="count" id="count" aria-live="polite"></span>
@@ -178,7 +184,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.8.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.9.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -197,7 +203,10 @@
       const backupReminder = document.getElementById("backup-reminder");
       const backupReminderTitle = document.getElementById("backup-reminder-title");
       const backupReminderText = document.getElementById("backup-reminder-text");
+      const undoNotice = document.getElementById("undo-notice");
+      const undoMessage = document.getElementById("undo-message");
       let recoveryRaw = "";
+      let deletedEntry = null;
       let entries = readEntries();
       let lastBackupAt = readBackupTimestamp();
 
@@ -470,9 +479,18 @@
           remove.textContent = "Löschen";
           remove.setAttribute("aria-label", `${item.name} löschen`);
           remove.addEventListener("click", () => {
+            const index = entries.findIndex(row => row.id === item.id);
+            const removed = entries[index];
             const previous = entries;
             entries = entries.filter(row => row.id !== item.id);
-            if (!persist()) entries = previous;
+            if (!persist()) {
+              entries = previous;
+              render();
+              return;
+            }
+            deletedEntry = { item: removed, index };
+            undoMessage.textContent = `„${removed.name}“ wurde gelöscht.`;
+            undoNotice.hidden = false;
             render();
           });
           action.append(remove);
@@ -555,7 +573,28 @@
         const previous = entries;
         entries = [];
         if (!persist()) entries = previous;
+        else {
+          deletedEntry = null;
+          undoNotice.hidden = true;
+        }
         render();
+      });
+
+      document.getElementById("undo-delete").addEventListener("click", () => {
+        if (!deletedEntry) return;
+        const previous = entries;
+        const { item, index } = deletedEntry;
+        const insertionPoint = Math.min(index, entries.length);
+        entries = [...entries.slice(0, insertionPoint), item, ...entries.slice(insertionPoint)];
+        if (!persist()) {
+          entries = previous;
+          render();
+          return;
+        }
+        deletedEntry = null;
+        undoNotice.hidden = true;
+        render();
+        setStatus(`„${item.name}“ wurde wiederhergestellt.`);
       });
 
       render();
