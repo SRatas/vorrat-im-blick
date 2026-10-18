@@ -94,6 +94,11 @@
       <strong>Datumsangaben sind nur deine Notizen.</strong>
       <p>Dieser Planer bewertet weder Haltbarkeit noch Lebensmittelsicherheit. Verlasse dich dafür nicht auf eine Markierung oder ein Datum in dieser Liste.</p>
     </aside>
+    <aside class="notice" id="storage-warning" role="alert" hidden>
+      <strong>Gespeicherte Daten konnten nicht vollständig gelesen werden.</strong>
+      <p id="storage-warning-text">Prüfe die Sicherung, bevor du weitere Änderungen vornimmst.</p>
+      <button class="secondary screen-only" id="download-recovery" type="button" hidden>Wiederherstellungskopie herunterladen</button>
+    </aside>
 
     <div class="layout">
       <section class="card entry-card" aria-labelledby="form-title">
@@ -152,27 +157,72 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.2.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.3.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
     (() => {
       const STORAGE_KEY = "vorrat-im-blick.items.v1";
+      const RECOVERY_PREFIX = `${STORAGE_KEY}.recovery.`;
       const form = document.getElementById("item-form");
       const list = document.getElementById("items");
       const empty = document.getElementById("empty");
       const search = document.getElementById("search");
       const status = document.getElementById("status");
+      const storageWarning = document.getElementById("storage-warning");
+      const storageWarningText = document.getElementById("storage-warning-text");
+      const recoveryButton = document.getElementById("download-recovery");
+      let recoveryRaw = "";
       let entries = readEntries();
+
+      function showStorageWarning(message, raw = "") {
+        storageWarning.hidden = false;
+        storageWarningText.textContent = message;
+        if (!raw) return;
+        recoveryRaw = raw;
+        try {
+          const existing = Object.keys(localStorage).some(key => key.startsWith(RECOVERY_PREFIX) && localStorage.getItem(key) === raw);
+          if (!existing) localStorage.setItem(`${RECOVERY_PREFIX}${Date.now()}`, raw);
+          recoveryButton.hidden = false;
+          storageWarningText.textContent = `${message} Eine unveränderte lokale Sicherung wurde abgelegt; lade sie zusätzlich herunter.`;
+        } catch {
+          storageWarningText.textContent = `${message} Der Browser konnte keine lokale Sicherung anlegen. Lade die Wiederherstellungskopie herunter.`;
+          recoveryButton.hidden = false;
+        }
+      }
 
       function readEntries() {
         try {
-          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-          return Array.isArray(parsed) ? parsed.filter(item => item && typeof item.id === "string" && typeof item.name === "string") : [];
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw === null) return [];
+          let parsed;
+          try { parsed = JSON.parse(raw); }
+          catch {
+            showStorageWarning("Die gespeicherten Daten sind nicht lesbar. Die Liste bleibt vorsichtshalber leer, bis du die Sicherung geprüft hast.", raw);
+            return [];
+          }
+          if (!Array.isArray(parsed)) {
+            showStorageWarning("Der gespeicherte Inhalt hat ein unerwartetes Format. Die Liste bleibt vorsichtshalber leer.", raw);
+            return [];
+          }
+          const valid = parsed.filter(item => item && typeof item.id === "string" && typeof item.name === "string");
+          if (valid.length !== parsed.length) showStorageWarning("Ein Teil der gespeicherten Einträge ist unlesbar. Lesbare Einträge wurden angezeigt; eine Sicherung des Rohinhalts liegt bereit.", raw);
+          return valid;
         } catch {
+          showStorageWarning("Der Browserspeicher ist derzeit nicht lesbar. Prüfe deine CSV-Sicherung und die Browsereinstellungen.");
           return [];
         }
       }
+
+      recoveryButton.addEventListener("click", () => {
+        if (!recoveryRaw) return;
+        const url = URL.createObjectURL(new Blob([recoveryRaw], { type: "application/json;charset=utf-8" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "vorrat-im-blick-wiederherstellung.json";
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
 
       function persist() {
         try {
@@ -287,6 +337,7 @@
           return;
         }
         render();
+        storageWarning.hidden = true;
         status.textContent = `${unique.length} Einträge wiederhergestellt; ${imported.length - unique.length} identische übersprungen. Vorhandene Einträge blieben erhalten.`;
       }
 
