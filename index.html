@@ -140,9 +140,11 @@
           </table>
           <div class="empty" id="empty">Noch keine Einträge. Füge links den ersten hinzu.</div>
         </div>
-        <p class="privacy">* Das Verpackungsdatum ist eine reine Nutzereingabe. Die Liste wird nach Möglichkeit im lokalen Browserspeicher dieses Geräts gesichert; private Browsermodi können das verhindern oder Daten beim Schließen löschen. Nutze „CSV sichern“ für eine eigene Sicherungskopie.</p>
+        <p class="privacy">* Das Verpackungsdatum ist eine reine Nutzereingabe. Die Liste wird nach Möglichkeit im lokalen Browserspeicher dieses Geräts gesichert. Nutze „CSV sichern“ als Sicherungskopie und „CSV wiederherstellen“, um sie in einem anderen Browser oder auf einem anderen Gerät einzulesen.</p>
         <div class="actions screen-only">
           <button class="secondary" id="export" type="button">CSV sichern</button>
+          <button class="secondary" id="import" type="button">CSV wiederherstellen</button>
+          <input id="import-file" type="file" accept=".csv,text/csv" hidden>
           <button class="secondary" id="print" type="button">Drucken</button>
           <button class="danger" id="clear" type="button">Alle Einträge löschen</button>
         </div>
@@ -150,7 +152,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.1.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.2.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -181,6 +183,111 @@
           status.textContent = "Speichern im Browser war nicht möglich. Sichere die Liste als CSV oder prüfe die Browsereinstellungen.";
           return false;
         }
+      }
+
+      function parseCsv(text, delimiter) {
+        const rows = [];
+        let row = [];
+        let field = "";
+        let quoted = false;
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          if (quoted) {
+            if (char === '"' && text[i + 1] === '"') {
+              field += '"';
+              i++;
+            } else if (char === '"') {
+              quoted = false;
+            } else {
+              field += char;
+            }
+          } else if (char === '"' && field.length === 0) {
+            quoted = true;
+          } else if (char === delimiter) {
+            row.push(field);
+            field = "";
+          } else if (char === "\n" || char === "\r") {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = "";
+            if (char === "\r" && text[i + 1] === "\n") i++;
+          } else {
+            field += char;
+          }
+        }
+        if (quoted) throw new Error("Die CSV-Datei enthält ein nicht geschlossenes Anführungszeichen.");
+        if (field.length || row.length) {
+          row.push(field);
+          rows.push(row);
+        }
+        return rows;
+      }
+
+      function newId() {
+        return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+
+      function importCsv(text) {
+        const cleanText = text.replace(/^\uFEFF/, "");
+        let rows = parseCsv(cleanText, ";");
+        if (!rows[0]?.some(value => value.trim().toLocaleLowerCase("de") === "artikel")) {
+          rows = parseCsv(cleanText, ",");
+        }
+        const headers = (rows.shift() || []).map(value => value.trim().toLocaleLowerCase("de"));
+        const columns = {
+          name: headers.indexOf("artikel"),
+          quantity: headers.indexOf("menge/portion"),
+          location: headers.indexOf("bereich/fach"),
+          added: headers.indexOf("eingetragen am"),
+          packageDate: headers.indexOf("datum laut verpackung"),
+          note: headers.indexOf("notiz"),
+          soon: headers.indexOf("manuell bald verwenden")
+        };
+        if (columns.name < 0) throw new Error("Die Spalte ‚Artikel‘ fehlt. Verwende eine CSV-Sicherung aus Vorrat im Blick.");
+
+        const imported = [];
+        for (let index = 0; index < rows.length; index++) {
+          const values = rows[index];
+          if (values.every(value => value.trim() === "")) continue;
+          if (values.length !== headers.length) throw new Error(`Zeile ${index + 2} hat eine unerwartete Spaltenanzahl. Es wurde nichts importiert.`);
+          const name = values[columns.name].trim();
+          if (!name) throw new Error(`In Zeile ${index + 2} fehlt der Artikelname. Es wurde nichts importiert.`);
+          const soonValue = columns.soon < 0 ? "" : values[columns.soon].trim().toLocaleLowerCase("de");
+          if (soonValue && !["ja", "nein", "true", "false", "1", "0"].includes(soonValue)) {
+            throw new Error(`Der Status in Zeile ${index + 2} ist nicht lesbar. Es wurde nichts importiert.`);
+          }
+          imported.push({
+            id: newId(),
+            name,
+            quantity: columns.quantity < 0 ? "" : values[columns.quantity],
+            location: columns.location < 0 ? "" : values[columns.location],
+            added: columns.added < 0 ? "" : values[columns.added],
+            packageDate: columns.packageDate < 0 ? "" : values[columns.packageDate],
+            note: columns.note < 0 ? "" : values[columns.note],
+            soon: ["ja", "true", "1"].includes(soonValue)
+          });
+        }
+        if (!imported.length) throw new Error("Die CSV-Datei enthält keine Einträge.");
+
+        const keyOf = item => JSON.stringify([item.name, item.quantity, item.location, item.added, item.packageDate, item.note, Boolean(item.soon)]);
+        const seen = new Set(entries.map(keyOf));
+        const unique = imported.filter(item => {
+          const key = keyOf(item);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        const previous = entries;
+        entries = [...unique, ...entries];
+        if (!persist()) {
+          entries = previous;
+          render();
+          status.textContent = "Der Import passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.";
+          return;
+        }
+        render();
+        status.textContent = `${unique.length} Einträge wiederhergestellt; ${imported.length - unique.length} identische übersprungen. Vorhandene Einträge blieben erhalten.`;
       }
 
       function cell(text) {
@@ -236,7 +343,7 @@
         const name = String(data.get("name") || "").trim();
         if (!name) return;
         entries.unshift({
-          id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          id: newId(),
           name,
           quantity: String(data.get("quantity") || "").trim(),
           location: String(data.get("location") || "").trim(),
@@ -270,6 +377,20 @@
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
         status.textContent = "CSV-Sicherung wurde lokal erstellt.";
       });
+      const importFile = document.getElementById("import-file");
+      document.getElementById("import").addEventListener("click", () => importFile.click());
+      importFile.addEventListener("change", async () => {
+        const file = importFile.files?.[0];
+        if (!file) return;
+        try {
+          if (file.size > 10 * 1024 * 1024) throw new Error("Die Datei ist größer als 10 MB.");
+          importCsv(await file.text());
+        } catch (error) {
+          status.textContent = `CSV nicht importiert: ${error.message}`;
+        } finally {
+          importFile.value = "";
+        }
+      });
       document.getElementById("clear").addEventListener("click", () => {
         if (!entries.length) return;
         if (!window.confirm("Wirklich alle lokal gespeicherten Einträge löschen? Eine CSV-Sicherung wird dadurch nicht gelöscht.")) return;
@@ -283,4 +404,5 @@
   </script>
 </body>
 </html>
+
 
