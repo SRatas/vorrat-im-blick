@@ -1,6 +1,6 @@
 # Vorrat im Blick
 
-**Version:** 0.18.0  
+**Version:** 0.18.1  
 **Web-App:** [sratas.github.io/vorrat-im-blick](https://sratas.github.io/vorrat-im-blick/)  
 **Projektstand:** 18.10.2026
 
