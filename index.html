@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Ein einfacher, offline nutzbarer Planer für Vorräte und Gefrierfach. Daten bleiben in diesem Browser.">
+  <title>Vorrat im Blick — lokaler Planer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172c29;
+      --muted: #536761;
+      --paper: #f6f4ed;
+      --card: #fffefa;
+      --line: #d8ded5;
+      --green: #1d5747;
+      --green-dark: #153d33;
+      --orange: #a84722;
+      --soft: #e9f0e9;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); line-height: 1.5; }
+    header { background: var(--green-dark); color: white; padding: 2rem 1rem 1.7rem; }
+    .wrap { width: min(1120px, 100% - 2rem); margin: 0 auto; }
+    .eyebrow { margin: 0 0 .4rem; color: #cfe3d4; font-size: .78rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -.04em; }
+    header p:last-child { max-width: 680px; margin: .8rem 0 0; color: #e0e9e1; }
+    main { padding: 1.25rem 0 3rem; }
+    .notice { border-left: 5px solid #d78b38; background: #fff4dc; padding: .9rem 1rem; border-radius: .25rem .7rem .7rem .25rem; margin-bottom: 1rem; }
+    .notice strong { display: block; margin-bottom: .15rem; }
+    .notice p { margin: 0; }
+    .layout { display: grid; grid-template-columns: minmax(250px, 340px) minmax(0, 1fr); gap: 1rem; align-items: start; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 1rem; padding: 1rem; box-shadow: 0 5px 18px #1e3a2c0b; }
+    h2 { margin: 0 0 .8rem; font-size: 1.2rem; letter-spacing: -.015em; }
+    label { display: block; font-size: .88rem; font-weight: 680; margin: .7rem 0 .25rem; }
+    input, textarea, button { font: inherit; }
+    input[type="text"], input[type="date"], textarea, .search {
+      width: 100%; border: 1px solid #aebbb0; border-radius: .55rem; padding: .62rem .7rem; color: var(--ink); background: white;
+    }
+    input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid #edb458; outline-offset: 2px; }
+    textarea { min-height: 4.3rem; resize: vertical; }
+    .field-note { display: block; margin-top: .25rem; color: var(--muted); font-size: .78rem; font-weight: 400; }
+    .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .9rem; }
+    button { border: 1px solid transparent; border-radius: .6rem; padding: .58rem .8rem; cursor: pointer; font-weight: 720; }
+    button:hover { filter: brightness(.96); }
+    .primary { color: white; background: var(--green); }
+    .secondary { color: var(--green-dark); background: var(--soft); border-color: #c8d6c9; }
+    .danger { color: #842d19; background: #fff2ed; border-color: #e6b2a2; }
+    .toolbar { display: flex; gap: .65rem; align-items: center; margin: .3rem 0 .8rem; }
+    .toolbar .search { flex: 1; min-width: 120px; }
+    .count { color: var(--muted); white-space: nowrap; font-size: .88rem; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .7rem; }
+    table { width: 100%; min-width: 740px; border-collapse: collapse; background: white; }
+    th, td { padding: .65rem .7rem; border-bottom: 1px solid #e6e9e2; text-align: left; vertical-align: top; }
+    th { background: #edf2e9; font-size: .78rem; letter-spacing: .035em; }
+    tbody tr:last-child td { border-bottom: 0; }
+    td small { display: block; color: var(--muted); }
+    .use-soon { display: inline-block; border-radius: 99px; padding: .12rem .5rem; background: #fff0d5; color: #71420d; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+    .row-delete { padding: .28rem .5rem; }
+    .empty { padding: 1.4rem; color: var(--muted); text-align: center; }
+    .privacy { margin-top: .9rem; color: var(--muted); font-size: .84rem; }
+    footer { border-top: 1px solid var(--line); padding: 1rem 0 2rem; color: var(--muted); font-size: .82rem; }
+    #status { min-height: 1.4em; margin: .6rem 0 0; color: var(--green-dark); font-size: .86rem; }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } header { padding-top: 1.5rem; } }
+    @media print {
+      @page { size: landscape; margin: 12mm; }
+      body { background: white; font-size: 10pt; }
+      header { background: white; color: var(--ink); padding: 0 0 .6rem; }
+      .eyebrow, header p:last-child { color: var(--muted); }
+      main { padding: .4rem 0; }
+      .layout { display: block; }
+      .entry-card, .toolbar, .privacy, footer, .notice .screen-only, .row-action { display: none !important; }
+      .card { border: 0; padding: 0; box-shadow: none; }
+      .table-wrap { overflow: visible; border-color: #888; }
+      table { min-width: 0; font-size: 9pt; }
+      th, td { padding: .35rem; }
+      th { background: #eee !important; print-color-adjust: exact; }
+      .empty { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <p class="eyebrow">Einfach · lokal · ohne Konto</p>
+      <h1>Vorrat im Blick</h1>
+      <p>Eine ruhige, einfache Liste für Gefrierfach und Vorrat. Du entscheidest, was du einträgst und wann du die Liste aktualisierst.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <aside class="notice" aria-label="Wichtiger Hinweis">
+      <strong>Datumsangaben sind nur deine Notizen.</strong>
+      <p>Dieser Planer bewertet weder Haltbarkeit noch Lebensmittelsicherheit. Verlasse dich dafür nicht auf eine Markierung oder ein Datum in dieser Liste.</p>
+    </aside>
+
+    <div class="layout">
+      <section class="card entry-card" aria-labelledby="form-title">
+        <h2 id="form-title">Eintrag hinzufügen</h2>
+        <form id="item-form">
+          <label for="item-name">Artikel <span aria-hidden="true">*</span></label>
+          <input id="item-name" name="name" type="text" maxlength="100" required autocomplete="off" placeholder="z. B. Erbsen">
+
+          <label for="item-quantity">Menge oder Portion</label>
+          <input id="item-quantity" name="quantity" type="text" maxlength="60" autocomplete="off" placeholder="z. B. 2 Beutel">
+
+          <label for="item-location">Bereich oder Fach</label>
+          <input id="item-location" name="location" type="text" maxlength="80" autocomplete="off" placeholder="z. B. Gefrierfach oben">
+
+          <label for="item-date">Eingetragen am</label>
+          <input id="item-date" name="added" type="date">
+
+          <label for="item-package-date">Datum laut Verpackung (optional)</label>
+          <input id="item-package-date" name="packageDate" type="date">
+          <span class="field-note">Wird unverändert gespeichert und nicht bewertet.</span>
+
+          <label for="item-note">Notiz</label>
+          <textarea id="item-note" name="note" maxlength="240" placeholder="Optional"></textarea>
+
+          <label><input id="item-soon" name="soon" type="checkbox"> Manuell als „bald verwenden“ markieren</label>
+          <div class="actions">
+            <button class="primary" type="submit">Eintrag speichern</button>
+            <button class="secondary" type="reset">Leeren</button>
+          </div>
+          <p id="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="list-title">
+        <h2 id="list-title">Deine Liste</h2>
+        <div class="toolbar">
+          <input class="search" id="search" type="search" placeholder="Liste durchsuchen …" aria-label="Liste durchsuchen">
+          <span class="count" id="count" aria-live="polite"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Artikel</th><th>Menge</th><th>Bereich</th><th>Eingetragen</th><th>Verpackungsdatum*</th><th>Status</th><th class="row-action">Aktion</th></tr></thead>
+            <tbody id="items"></tbody>
+          </table>
+          <div class="empty" id="empty">Noch keine Einträge. Füge links den ersten hinzu.</div>
+        </div>
+        <p class="privacy">* Das Verpackungsdatum ist eine reine Nutzereingabe. Die Liste wird nach Möglichkeit im lokalen Browserspeicher dieses Geräts gesichert; private Browsermodi können das verhindern oder Daten beim Schließen löschen. Nutze „CSV sichern“ für eine eigene Sicherungskopie.</p>
+        <div class="actions screen-only">
+          <button class="secondary" id="export" type="button">CSV sichern</button>
+          <button class="secondary" id="print" type="button">Drucken</button>
+          <button class="danger" id="clear" type="button">Alle Einträge löschen</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer><div class="wrap">Vorrat im Blick · Version 0.1.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+
+  <script>
+    "use strict";
+    (() => {
+      const STORAGE_KEY = "vorrat-im-blick.items.v1";
+      const form = document.getElementById("item-form");
+      const list = document.getElementById("items");
+      const empty = document.getElementById("empty");
+      const search = document.getElementById("search");
+      const status = document.getElementById("status");
+      let entries = readEntries();
+
+      function readEntries() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+          return Array.isArray(parsed) ? parsed.filter(item => item && typeof item.id === "string" && typeof item.name === "string") : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function persist() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+          status.textContent = "Lokal in diesem Browser gespeichert.";
+          return true;
+        } catch {
+          status.textContent = "Speichern im Browser war nicht möglich. Sichere die Liste als CSV oder prüfe die Browsereinstellungen.";
+          return false;
+        }
+      }
+
+      function cell(text) {
+        const td = document.createElement("td");
+        td.textContent = text || "—";
+        return td;
+      }
+
+      function render() {
+        const query = search.value.trim().toLocaleLowerCase("de");
+        const visible = entries.filter(item => Object.values(item).join(" ").toLocaleLowerCase("de").includes(query));
+        list.replaceChildren();
+        for (const item of visible) {
+          const tr = document.createElement("tr");
+          const name = cell(item.name);
+          if (item.note) {
+            const note = document.createElement("small");
+            note.textContent = item.note;
+            name.append(note);
+          }
+          tr.append(name, cell(item.quantity), cell(item.location), cell(item.added), cell(item.packageDate));
+          const badgeCell = document.createElement("td");
+          if (item.soon) {
+            const badge = document.createElement("span");
+            badge.className = "use-soon";
+            badge.textContent = "Bald verwenden · manuell";
+            badgeCell.append(badge);
+          } else badgeCell.textContent = "—";
+          tr.append(badgeCell);
+          const action = document.createElement("td");
+          action.className = "row-action";
+          const remove = document.createElement("button");
+          remove.className = "danger row-delete";
+          remove.type = "button";
+          remove.textContent = "Löschen";
+          remove.setAttribute("aria-label", `${item.name} löschen`);
+          remove.addEventListener("click", () => {
+            entries = entries.filter(row => row.id !== item.id);
+            persist();
+            render();
+          });
+          action.append(remove);
+          tr.append(action);
+          list.append(tr);
+        }
+        empty.hidden = visible.length > 0;
+        document.getElementById("count").textContent = `${visible.length} von ${entries.length} Einträgen`;
+      }
+
+      form.addEventListener("submit", event => {
+        event.preventDefault();
+        const data = new FormData(form);
+        const name = String(data.get("name") || "").trim();
+        if (!name) return;
+        entries.unshift({
+          id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          name,
+          quantity: String(data.get("quantity") || "").trim(),
+          location: String(data.get("location") || "").trim(),
+          added: String(data.get("added") || ""),
+          packageDate: String(data.get("packageDate") || ""),
+          note: String(data.get("note") || "").trim(),
+          soon: document.getElementById("item-soon").checked
+        });
+        persist();
+        form.reset();
+        render();
+        document.getElementById("item-name").focus();
+      });
+
+      search.addEventListener("input", render);
+      document.getElementById("print").addEventListener("click", () => window.print());
+      document.getElementById("export").addEventListener("click", () => {
+        const columns = ["Artikel", "Menge/Portion", "Bereich/Fach", "Eingetragen am", "Datum laut Verpackung", "Notiz", "Manuell bald verwenden"];
+        const quote = value => {
+          let text = String(value ?? "");
+          if (/^\s*[=+@-]/.test(text)) text = `'${text}`;
+          return `"${text.replaceAll('"', '""')}"`;
+        };
+        const csv = [columns.map(quote).join(";"), ...entries.map(item => [item.name, item.quantity, item.location, item.added, item.packageDate, item.note, item.soon ? "Ja" : "Nein"].map(quote).join(";"))].join("\r\n");
+        const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "vorrat-im-blick.csv";
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        status.textContent = "CSV-Sicherung wurde lokal erstellt.";
+      });
+      document.getElementById("clear").addEventListener("click", () => {
+        if (!entries.length) return;
+        if (!window.confirm("Wirklich alle lokal gespeicherten Einträge löschen? Eine CSV-Sicherung wird dadurch nicht gelöscht.")) return;
+        entries = [];
+        persist();
+        render();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
+
