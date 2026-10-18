@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sratas.github.io/vorrat-im-blick/sitemap.xml
