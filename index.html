@@ -64,7 +64,7 @@
     .row-delete { padding: .28rem .5rem; }
     .empty { padding: 1.4rem; color: var(--muted); text-align: center; }
     .privacy { margin-top: .9rem; color: var(--muted); font-size: .84rem; }
-    .backup-reminder { margin: .9rem 0 0; }
+    .backup-reminder { margin: 0 0 .9rem; }
     .backup-reminder .actions { margin-top: .6rem; }
     #install-action[hidden] { display: none; }
     .undo-notice:not([hidden]) { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
@@ -158,6 +158,11 @@
 
       <section class="card" aria-labelledby="list-title">
         <h2 id="list-title">Deine Liste</h2>
+        <aside class="notice backup-reminder" id="backup-reminder" aria-live="polite" hidden>
+          <strong id="backup-reminder-title"></strong>
+          <p id="backup-reminder-text"></p>
+          <div class="actions"><button class="secondary" id="backup-now" type="button">CSV jetzt sichern</button></div>
+        </aside>
         <aside class="notice undo-notice" id="undo-notice" role="status" aria-live="polite" hidden>
           <p id="undo-message">Eintrag gelöscht.</p>
           <button class="secondary" id="undo-delete" type="button">Rückgängig</button>
@@ -173,11 +178,6 @@
           </table>
           <div class="empty" id="empty">Noch keine Einträge. Füge über das Formular den ersten hinzu.</div>
         </div>
-        <aside class="notice backup-reminder" id="backup-reminder" aria-live="polite" hidden>
-          <strong id="backup-reminder-title"></strong>
-          <p id="backup-reminder-text"></p>
-          <div class="actions"><button class="secondary" id="backup-now" type="button">CSV jetzt sichern</button></div>
-        </aside>
         <p class="privacy">* Das Verpackungsdatum ist eine reine Nutzereingabe. Die Liste wird nach Möglichkeit im lokalen Browserspeicher dieses Geräts gesichert. Nutze „CSV sichern“ als Sicherungskopie und „Sicherung wiederherstellen“, um CSV- oder Wiederherstellungsdateien einzulesen.</p>
         <p class="privacy" id="offline-info" hidden></p>
         <div class="actions screen-only" id="install-action" hidden>
@@ -196,7 +196,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.14.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.14.1 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
