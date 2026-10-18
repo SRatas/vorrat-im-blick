@@ -31,6 +31,8 @@
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--paper); color: var(--ink); line-height: 1.5; }
     header { background: var(--green-dark); color: white; padding: 2rem 1rem 1.7rem; }
+    header .header-feedback { margin: .55rem 0 0; color: #e0e9e1; font-size: .86rem; }
+    header .header-feedback a { color: white; font-weight: 700; text-underline-offset: .15em; }
     .wrap { width: min(1120px, 100% - 2rem); margin: 0 auto; }
     .eyebrow { margin: 0 0 .4rem; color: #cfe3d4; font-size: .78rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
     h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -.04em; }
@@ -98,6 +100,7 @@
       body { background: white; font-size: 10pt; }
       header { background: white; color: var(--ink); padding: 0 0 .6rem; }
       .eyebrow, header p:last-child { color: var(--muted); }
+      .header-feedback { display: none; }
       main { padding: .4rem 0; }
       .layout { display: block; }
       .entry-card, .toolbar, .privacy, footer, .backup-reminder, .undo-notice, .notice .screen-only, .row-action { display: none !important; }
@@ -116,6 +119,7 @@
       <p class="eyebrow">Einfach · lokal · ohne Konto</p>
       <h1>Vorrat im Blick</h1>
       <p>Kostenlose Vorratsliste für Gefrierfach und Vorrat: Einträge notieren, suchen und als CSV sichern. Die Liste bleibt lokal in diesem Browser; ein Konto ist nicht nötig.</p>
+      <p class="header-feedback"><a href="https://github.com/SRatas/vorrat-im-blick/issues/new?template=rueckmeldung.yml" target="_blank" rel="noopener noreferrer">Rückmeldung geben</a> · Öffentliches GitHub-Formular, Konto erforderlich. Die App überträgt keine Listendaten; bitte keine persönlichen Angaben einfügen.</p>
     </div>
   </header>
 
@@ -214,8 +218,7 @@
 
   <footer>
     <div class="wrap">
-      Vorrat im Blick · Version 0.18.1 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.
-      <p> <a href="https://github.com/SRatas/vorrat-im-blick/issues/new?template=rueckmeldung.yml" target="_blank" rel="noopener noreferrer">Rückmeldung geben (öffentlich bei GitHub)</a> · Der Link überträgt keine Listeneinträge. GitHub-Beiträge sind öffentlich; bitte keine Vorrats- oder persönlichen Daten einfügen. Zum Absenden ist ein GitHub-Konto nötig.</p>
+      Vorrat im Blick · Version 0.18.2 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.
     </div>
   </footer>
 
