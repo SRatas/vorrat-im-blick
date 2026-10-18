@@ -1,10 +1,10 @@
 # Vorrat im Blick
 
-**Version:** 0.17.0  
+**Version:** 0.18.0  
 **Web-App:** [sratas.github.io/vorrat-im-blick](https://sratas.github.io/vorrat-im-blick/)  
 **Projektstand:** 18.10.2026
 
-Eine einfache Liste für Vorräte und Gefrierfach. Die App läuft im Browser und benötigt kein Konto.
+Eine kostenlose Vorratsliste für Gefrierfach und Vorrat. Die App läuft lokal im Browser und benötigt kein Konto.
 
 ## Benutzung
 
