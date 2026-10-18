@@ -1,6 +1,6 @@
 # Vorrat im Blick
 
-**Version:** 0.16.2  
+**Version:** 0.17.0  
 **Web-App:** [sratas.github.io/vorrat-im-blick](https://sratas.github.io/vorrat-im-blick/)  
 **Projektstand:** 18.10.2026
 
@@ -24,6 +24,10 @@ Nutze die CSV-Sicherung regelmäßig. Wenn gespeicherte Daten unlesbar sind, blo
 - Die App beurteilt weder Haltbarkeit noch Frische oder Lebensmittelsicherheit. Datumsfelder sind nur eigene Notizen.
 - Die lokale Speicherung ist nicht verschlüsselt und kein Schutz vor anderen Personen mit Zugriff auf dasselbe Browserprofil.
 - Es gibt keine automatische Synchronisierung zwischen Geräten.
+
+## Rückmeldung
+
+Über den Link in der App kannst du freiwillig eine Rückmeldung als öffentliches GitHub-Issue senden. Der Link übernimmt keine Einträge aus deiner Liste. GitHub zeigt eingereichte Rückmeldungen öffentlich an und verlangt zum Absenden ein GitHub-Konto. Bitte füge keine Vorrats- oder persönlichen Daten ein.
 
 ## Entwicklung
 
