@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Ein einfacher, offline nutzbarer Planer für Vorräte und Gefrierfach. Daten bleiben in diesem Browser.">
+  <meta name="theme-color" content="#153d33">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <title>Vorrat im Blick — lokaler Planer</title>
   <style>
     :root {
@@ -62,6 +65,7 @@
     .privacy { margin-top: .9rem; color: var(--muted); font-size: .84rem; }
     .backup-reminder { margin: .9rem 0 0; }
     .backup-reminder .actions { margin-top: .6rem; }
+    #install-action[hidden] { display: none; }
     .undo-notice:not([hidden]) { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
     .undo-notice p { margin: 0; }
     footer { border-top: 1px solid var(--line); padding: 1rem 0 2rem; color: var(--muted); font-size: .82rem; }
@@ -174,6 +178,9 @@
         </aside>
         <p class="privacy">* Das Verpackungsdatum ist eine reine Nutzereingabe. Die Liste wird nach Möglichkeit im lokalen Browserspeicher dieses Geräts gesichert. Nutze „CSV sichern“ als Sicherungskopie und „Sicherung wiederherstellen“, um CSV- oder Wiederherstellungsdateien einzulesen.</p>
         <p class="privacy" id="offline-info" hidden></p>
+        <div class="actions screen-only" id="install-action" hidden>
+          <button class="secondary" id="install-app" type="button">Auf dem Gerät installieren</button>
+        </div>
         <div class="actions screen-only">
           <button class="secondary" id="export" type="button">CSV sichern</button>
           <button class="secondary" id="import" type="button">Sicherung wiederherstellen</button>
@@ -185,7 +192,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.11.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.12.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -665,8 +672,30 @@
       }
       navigator.serviceWorker.register("./service-worker.js")
         .then(() => navigator.serviceWorker.ready)
-        .then(() => show("Nach dem ersten Laden kann Vorrat im Blick auch ohne Internetverbindung geöffnet werden. Die Einträge bleiben in diesem Browser."))
+        .then(() => show("Nach dem ersten Laden kann Vorrat im Blick auch ohne Internetverbindung geöffnet werden. Über das Browser-Menü kannst du die App zum Startbildschirm hinzufügen."))
         .catch(() => show("Die Offline-Speicherung konnte nicht eingerichtet werden. Lade die Seite online erneut; deine Einträge bleiben lokal in diesem Browser."));
+
+      const installAction = document.getElementById("install-action");
+      const installButton = document.getElementById("install-app");
+      let installPrompt = null;
+      window.addEventListener("beforeinstallprompt", event => {
+        event.preventDefault();
+        installPrompt = event;
+        installAction.hidden = false;
+      });
+      installButton.addEventListener("click", async () => {
+        if (!installPrompt) return;
+        const promptEvent = installPrompt;
+        installPrompt = null;
+        installAction.hidden = true;
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice.outcome === "accepted") show("Vorrat im Blick wurde zum Gerät hinzugefügt.");
+      });
+      window.addEventListener("appinstalled", () => {
+        installAction.hidden = true;
+        show("Vorrat im Blick wurde zum Gerät hinzugefügt.");
+      });
     })();
   </script>
 </body>
