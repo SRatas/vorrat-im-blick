@@ -120,7 +120,7 @@
       <p>Dieser Planer bewertet weder Haltbarkeit noch Lebensmittelsicherheit. Verlasse dich dafür nicht auf eine Markierung oder ein Datum in dieser Liste.</p>
     </aside>
     <aside class="notice" id="storage-warning" role="alert" hidden>
-      <strong>Gespeicherte Daten konnten nicht vollständig gelesen werden.</strong>
+      <strong id="storage-warning-title">Gespeicherte Daten konnten nicht vollständig gelesen werden.</strong>
       <p id="storage-warning-text">Prüfe die Sicherung, bevor du weitere Änderungen vornimmst.</p>
       <button class="secondary screen-only" id="download-recovery" type="button" hidden>Wiederherstellungskopie herunterladen</button>
     </aside>
@@ -207,7 +207,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.16.1 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.16.2 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -225,6 +225,7 @@
       const status = document.getElementById("status");
       const storageWarning = document.getElementById("storage-warning");
       const tabConflict = document.getElementById("tab-conflict");
+      const storageWarningTitle = document.getElementById("storage-warning-title");
       const storageWarningText = document.getElementById("storage-warning-text");
       const recoveryButton = document.getElementById("download-recovery");
       const backupReminder = document.getElementById("backup-reminder");
@@ -240,6 +241,7 @@
       const cancelEditButton = document.getElementById("cancel-edit");
       let editingId = null;
       let recoveryRaw = "";
+      let storageReadBlocked = false;
       let entries = readEntries();
       let lastPersistedRaw = readStoredRaw();
       let externalConflict = false;
@@ -363,17 +365,23 @@
           let parsed;
           try { parsed = JSON.parse(raw); }
           catch {
+            storageReadBlocked = true;
             showStorageWarning("Die gespeicherten Daten sind nicht lesbar. Die Liste bleibt vorsichtshalber leer, bis du die Sicherung geprüft hast.", raw);
             return [];
           }
           if (!Array.isArray(parsed)) {
+            storageReadBlocked = true;
             showStorageWarning("Der gespeicherte Inhalt hat ein unerwartetes Format. Die Liste bleibt vorsichtshalber leer.", raw);
             return [];
           }
           const valid = parsed.filter(item => item && typeof item.id === "string" && typeof item.name === "string");
-          if (valid.length !== parsed.length) showStorageWarning("Ein Teil der gespeicherten Einträge ist unlesbar. Lesbare Einträge wurden angezeigt; eine Sicherung des Rohinhalts liegt bereit.", raw);
+          if (valid.length !== parsed.length) {
+            storageReadBlocked = true;
+            showStorageWarning("Ein Teil der gespeicherten Einträge ist unlesbar. Lesbare Einträge wurden angezeigt; eine Sicherung des Rohinhalts liegt bereit.", raw);
+          }
           return valid;
         } catch {
+          storageReadBlocked = true;
           showStorageWarning("Der Browserspeicher ist derzeit nicht lesbar. Prüfe deine CSV-Sicherung und die Browsereinstellungen.");
           return [];
         }
@@ -389,7 +397,11 @@
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       });
 
-      async function persist() {
+      async function persist({ repairStorage = false } = {}) {
+        if (storageReadBlocked && !repairStorage) {
+          setStatus("Speichern gesperrt, damit unlesbare Daten nicht überschrieben werden. Lade zuerst eine CSV- oder Wiederherstellungssicherung.", true);
+          return false;
+        }
         if (saveInProgress) {
           setStatus("Ein Speichervorgang läuft bereits. Warte kurz und versuche es erneut.", true);
           return false;
@@ -405,6 +417,10 @@
         let confirmationCleared = false;
         try {
           const write = () => {
+            if (storageReadBlocked && !repairStorage) {
+              setStatus("Speichern gesperrt, damit unlesbare Daten nicht überschrieben werden. Lade zuerst eine Sicherung.", true);
+              return false;
+            }
             if (externalConflict || readStoredRaw() !== lastPersistedRaw) {
               showTabConflict();
               return false;
@@ -420,6 +436,17 @@
             const serialized = JSON.stringify(entries);
             localStorage.setItem(STORAGE_KEY, serialized);
             lastPersistedRaw = serialized;
+            if (repairStorage) {
+              storageReadBlocked = false;
+              if (recoveryRaw) {
+                storageWarningTitle.textContent = "Die Liste wurde aus einer Sicherung wiederhergestellt.";
+                storageWarningText.textContent = "Die vorherigen unlesbaren Daten bleiben als Wiederherstellungskopie verfügbar. Lade sie herunter, falls du sie noch brauchst.";
+                recoveryButton.hidden = false;
+                storageWarning.hidden = false;
+              } else {
+                storageWarning.hidden = true;
+              }
+            }
             lastBackupAt = 0;
             lastConfirmedAt = 0;
             setStatus("Lokal in diesem Browser gespeichert.");
@@ -581,14 +608,15 @@
         });
         const previous = entries;
         entries = [...unique, ...entries];
-        if (!await persist()) {
+        const repairingStorage = storageReadBlocked;
+        if (!await persist({ repairStorage: repairingStorage })) {
           entries = previous;
           render();
           setStatus("Der Import passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.", true);
           return;
         }
         render();
-        storageWarning.hidden = true;
+        if (!repairingStorage) storageWarning.hidden = true;
         setStatus(`${unique.length} Einträge wiederhergestellt; ${imported.length - unique.length} identische übersprungen. Vorhandene Einträge blieben erhalten.`);
       }
 
@@ -626,14 +654,15 @@
         });
         const previous = entries;
         entries = [...unique, ...entries];
-        if (!await persist()) {
+        const repairingStorage = storageReadBlocked;
+        if (!await persist({ repairStorage: repairingStorage })) {
           entries = previous;
           render();
           setStatus("Die Sicherung passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.", true);
           return;
         }
         render();
-        storageWarning.hidden = true;
+        if (!repairingStorage) storageWarning.hidden = true;
         setStatus(`${unique.length} Einträge wiederhergestellt; ${restored.length - unique.length} identische übersprungen${skipped ? `, ${skipped} unlesbare ausgelassen` : ""}. Vorhandene Einträge blieben erhalten.`, skipped > 0);
       }
 
