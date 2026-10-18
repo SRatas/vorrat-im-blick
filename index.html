@@ -186,15 +186,17 @@
         <div class="actions screen-only">
           <button class="secondary" id="export" type="button">CSV sichern</button>
           <button class="secondary" id="import" type="button">Sicherung wiederherstellen</button>
+          <button class="secondary" id="protect-storage" type="button">Browser-Speicherung schützen</button>
           <input id="import-file" type="file" accept=".csv,text/csv,.json,application/json" hidden>
           <button class="secondary" id="print" type="button">Drucken</button>
           <button class="danger" id="clear" type="button">Alle Einträge löschen</button>
         </div>
+        <p class="privacy">Der Browser kann die lokale Liste vor automatischer Speicherbereinigung schützen. Das ersetzt keine CSV-Sicherung und schützt nicht vor Geräteverlust oder manuellem Löschen.</p>
       </section>
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.13.3 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.14.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -647,6 +649,36 @@
       cancelEditButton.addEventListener("click", () => {
         stopEditing();
         setStatus("Bearbeitung abgebrochen.");
+      });
+
+      const protectStorageButton = document.getElementById("protect-storage");
+      const storageManager = navigator.storage;
+      if (storageManager?.persisted) {
+        storageManager.persisted().then(persisted => {
+          if (!persisted) return;
+          protectStorageButton.textContent = "Browser-Schutz aktiv";
+          protectStorageButton.disabled = true;
+        }).catch(() => {});
+      }
+      protectStorageButton.addEventListener("click", async () => {
+        if (!storageManager?.persist) {
+          setStatus("Dieser Browser bietet keinen zusätzlichen Speicherschutz an. Sichere die Liste regelmäßig als CSV.", true);
+          return;
+        }
+        protectStorageButton.disabled = true;
+        try {
+          const persisted = await storageManager.persist();
+          if (persisted) {
+            protectStorageButton.textContent = "Browser-Schutz aktiv";
+            setStatus("Der Browser schützt die lokalen Daten vor automatischer Speicherbereinigung. CSV-Sicherungen bleiben für Gerätewechsel wichtig.");
+          } else {
+            protectStorageButton.disabled = false;
+            setStatus("Der Browser hat den zusätzlichen Speicherschutz nicht gewährt. Sichere die Liste regelmäßig als CSV.", true);
+          }
+        } catch {
+          protectStorageButton.disabled = false;
+          setStatus("Der Speicherschutz konnte nicht angefragt werden. Sichere die Liste regelmäßig als CSV.", true);
+        }
       });
 
       search.addEventListener("input", render);
