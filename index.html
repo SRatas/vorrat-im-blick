@@ -145,11 +145,11 @@
           </table>
           <div class="empty" id="empty">Noch keine Einträge. Füge links den ersten hinzu.</div>
         </div>
-        <p class="privacy">* Das Verpackungsdatum ist eine reine Nutzereingabe. Die Liste wird nach Möglichkeit im lokalen Browserspeicher dieses Geräts gesichert. Nutze „CSV sichern“ als Sicherungskopie und „CSV wiederherstellen“, um sie in einem anderen Browser oder auf einem anderen Gerät einzulesen.</p>
+        <p class="privacy">* Das Verpackungsdatum ist eine reine Nutzereingabe. Die Liste wird nach Möglichkeit im lokalen Browserspeicher dieses Geräts gesichert. Nutze „CSV sichern“ als Sicherungskopie und „Sicherung wiederherstellen“, um CSV- oder Wiederherstellungsdateien einzulesen.</p>
         <div class="actions screen-only">
           <button class="secondary" id="export" type="button">CSV sichern</button>
-          <button class="secondary" id="import" type="button">CSV wiederherstellen</button>
-          <input id="import-file" type="file" accept=".csv,text/csv" hidden>
+          <button class="secondary" id="import" type="button">Sicherung wiederherstellen</button>
+          <input id="import-file" type="file" accept=".csv,text/csv,.json,application/json" hidden>
           <button class="secondary" id="print" type="button">Drucken</button>
           <button class="danger" id="clear" type="button">Alle Einträge löschen</button>
         </div>
@@ -157,7 +157,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.3.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.4.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -341,6 +341,51 @@
         status.textContent = `${unique.length} Einträge wiederhergestellt; ${imported.length - unique.length} identische übersprungen. Vorhandene Einträge blieben erhalten.`;
       }
 
+      function importRecoveryJson(text) {
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) throw new Error("Die JSON-Datei hat nicht das erwartete Sicherungsformat.");
+        const restored = [];
+        let skipped = 0;
+        for (const item of parsed) {
+          if (!item || typeof item !== "object" || typeof item.name !== "string" || !item.name.trim()) {
+            skipped++;
+            continue;
+          }
+          const stringField = key => typeof item[key] === "string" ? item[key] : "";
+          restored.push({
+            id: newId(),
+            name: item.name.trim(),
+            quantity: stringField("quantity"),
+            location: stringField("location"),
+            added: stringField("added"),
+            packageDate: stringField("packageDate"),
+            note: stringField("note"),
+            soon: item.soon === true
+          });
+        }
+        if (!restored.length) throw new Error("Die Sicherung enthält keine lesbaren Einträge.");
+
+        const keyOf = item => JSON.stringify([item.name, item.quantity, item.location, item.added, item.packageDate, item.note, Boolean(item.soon)]);
+        const seen = new Set(entries.map(keyOf));
+        const unique = restored.filter(item => {
+          const key = keyOf(item);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        const previous = entries;
+        entries = [...unique, ...entries];
+        if (!persist()) {
+          entries = previous;
+          render();
+          status.textContent = "Die Sicherung passte nicht in den Browserspeicher. Vorhandene Einträge blieben erhalten.";
+          return;
+        }
+        render();
+        storageWarning.hidden = true;
+        status.textContent = `${unique.length} Einträge wiederhergestellt; ${restored.length - unique.length} identische übersprungen${skipped ? `, ${skipped} unlesbare ausgelassen` : ""}. Vorhandene Einträge blieben erhalten.`;
+      }
+
       function cell(text) {
         const td = document.createElement("td");
         td.textContent = text || "—";
@@ -435,9 +480,11 @@
         if (!file) return;
         try {
           if (file.size > 10 * 1024 * 1024) throw new Error("Die Datei ist größer als 10 MB.");
-          importCsv(await file.text());
+          const text = await file.text();
+          if (file.name.toLocaleLowerCase("de").endsWith(".json") || file.type === "application/json") importRecoveryJson(text);
+          else importCsv(text);
         } catch (error) {
-          status.textContent = `CSV nicht importiert: ${error.message}`;
+          status.textContent = `Sicherung nicht importiert: ${error.message}`;
         } finally {
           importFile.value = "";
         }
