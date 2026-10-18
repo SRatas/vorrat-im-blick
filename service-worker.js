@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "vorrat-im-blick-offline-v3";
+const CACHE_NAME = "vorrat-im-blick-offline-v4";
 const APP_SHELL_URL = new URL("./", self.registration.scope).href;
 const APP_SHELL_ASSETS = [
   APP_SHELL_URL,
@@ -41,7 +41,7 @@ self.addEventListener("fetch", event => {
   if (request.mode !== "navigate") return;
 
   event.respondWith(
-    fetch(request)
+    fetch(request, { cache: "no-cache" })
       .then(response => {
         if (response.ok) {
           return caches.open(CACHE_NAME)
