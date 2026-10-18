@@ -173,6 +173,7 @@
           <div class="actions"><button class="secondary" id="backup-now" type="button">CSV jetzt sichern</button></div>
         </aside>
         <p class="privacy">* Das Verpackungsdatum ist eine reine Nutzereingabe. Die Liste wird nach Möglichkeit im lokalen Browserspeicher dieses Geräts gesichert. Nutze „CSV sichern“ als Sicherungskopie und „Sicherung wiederherstellen“, um CSV- oder Wiederherstellungsdateien einzulesen.</p>
+        <p class="privacy" id="offline-info" hidden></p>
         <div class="actions screen-only">
           <button class="secondary" id="export" type="button">CSV sichern</button>
           <button class="secondary" id="import" type="button">Sicherung wiederherstellen</button>
@@ -184,7 +185,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.10.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.11.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -652,22 +653,23 @@
 
       render();
     })();
+    (() => {
+      const info = document.getElementById("offline-info");
+      const show = message => {
+        info.textContent = message;
+        info.hidden = false;
+      };
+      if (!("serviceWorker" in navigator)) {
+        show("Offline-Start wird von diesem Browser nicht unterstützt. Deine gespeicherten Einträge bleiben trotzdem lokal in diesem Browser.");
+        return;
+      }
+      navigator.serviceWorker.register("./service-worker.js")
+        .then(() => navigator.serviceWorker.ready)
+        .then(() => show("Nach dem ersten Laden kann Vorrat im Blick auch ohne Internetverbindung geöffnet werden. Die Einträge bleiben in diesem Browser."))
+        .catch(() => show("Die Offline-Speicherung konnte nicht eingerichtet werden. Lade die Seite online erneut; deine Einträge bleiben lokal in diesem Browser."));
+    })();
   </script>
 </body>
 </html>
 
 
-157:          <button class="secondary" id="undo-delete" type="button">Rückgängig</button>
-187:  <footer><div class="wrap">Vorrat im Blick · Version 0.10.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
-195:      const UNDO_KEY = `${STORAGE_KEY}.last-deleted.v1`;
-211:      let deletedEntry = readDeletedEntry();
-224:      function storeDeletedEntry(record) {
-226:          localStorage.setItem(UNDO_KEY, JSON.stringify(record));
-233:      function readDeletedEntry() {
-235:          const raw = localStorage.getItem(UNDO_KEY);
-241:            storeDeletedEntry(null);
-525:            if (!storeDeletedEntry(nextUndo)) {
-534:              storeDeletedEntry(previousUndo);
-620:        if (!storeDeletedEntry(null)) {
-628:          storeDeletedEntry(previousUndo);
-648:        storeDeletedEntry(null);
