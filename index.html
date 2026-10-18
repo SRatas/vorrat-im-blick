@@ -184,7 +184,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.9.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.10.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -192,6 +192,7 @@
       const STORAGE_KEY = "vorrat-im-blick.items.v1";
       const RECOVERY_PREFIX = `${STORAGE_KEY}.recovery.`;
       const BACKUP_KEY = `${STORAGE_KEY}.last-backup.v1`;
+      const UNDO_KEY = `${STORAGE_KEY}.last-deleted.v1`;
       const form = document.getElementById("item-form");
       const list = document.getElementById("items");
       const empty = document.getElementById("empty");
@@ -206,8 +207,8 @@
       const undoNotice = document.getElementById("undo-notice");
       const undoMessage = document.getElementById("undo-message");
       let recoveryRaw = "";
-      let deletedEntry = null;
       let entries = readEntries();
+      let deletedEntry = readDeletedEntry();
       let lastBackupAt = readBackupTimestamp();
 
       function setStatus(message, isError = false) {
@@ -218,6 +219,42 @@
       function readBackupTimestamp() {
         try { return Number(localStorage.getItem(BACKUP_KEY)) || 0; }
         catch { return 0; }
+      }
+
+      function storeDeletedEntry(record) {
+        try {
+          localStorage.setItem(UNDO_KEY, JSON.stringify(record));
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function readDeletedEntry() {
+        try {
+          const raw = localStorage.getItem(UNDO_KEY);
+          if (!raw) return null;
+          const record = JSON.parse(raw);
+          const item = record?.item;
+          if (!item || typeof item.id !== "string" || typeof item.name !== "string") return null;
+          if (entries.some(row => row.id === item.id)) {
+            storeDeletedEntry(null);
+            return null;
+          }
+          const restored = {
+            id: item.id,
+            name: item.name,
+            quantity: typeof item.quantity === "string" ? item.quantity : "",
+            location: typeof item.location === "string" ? item.location : "",
+            added: typeof item.added === "string" ? item.added : "",
+            packageDate: typeof item.packageDate === "string" ? item.packageDate : "",
+            note: typeof item.note === "string" ? item.note : "",
+            soon: item.soon === true
+          };
+          return { item: restored, index: Number.isInteger(record.index) && record.index >= 0 ? record.index : entries.length };
+        } catch {
+          return null;
+        }
       }
 
       function updateBackupReminder() {
@@ -449,6 +486,8 @@
       }
 
       function render() {
+        undoNotice.hidden = !deletedEntry;
+        if (deletedEntry) undoMessage.textContent = `„${deletedEntry.item.name}“ wurde gelöscht.`;
         const query = search.value.trim().toLocaleLowerCase("de");
         const visible = entries.filter(item => Object.values(item).join(" ").toLocaleLowerCase("de").includes(query));
         list.replaceChildren();
@@ -481,16 +520,22 @@
           remove.addEventListener("click", () => {
             const index = entries.findIndex(row => row.id === item.id);
             const removed = entries[index];
+            const previousUndo = deletedEntry;
+            const nextUndo = { item: removed, index };
+            if (!storeDeletedEntry(nextUndo)) {
+              setStatus("Die Löschung konnte nicht abgesichert werden. Der Eintrag blieb erhalten.", true);
+              return;
+            }
             const previous = entries;
             entries = entries.filter(row => row.id !== item.id);
             if (!persist()) {
               entries = previous;
+              deletedEntry = previousUndo;
+              storeDeletedEntry(previousUndo);
               render();
               return;
             }
-            deletedEntry = { item: removed, index };
-            undoMessage.textContent = `„${removed.name}“ wurde gelöscht.`;
-            undoNotice.hidden = false;
+            deletedEntry = nextUndo;
             render();
           });
           action.append(remove);
@@ -571,11 +616,19 @@
         if (!entries.length) return;
         if (!window.confirm("Wirklich alle lokal gespeicherten Einträge löschen? Eine CSV-Sicherung wird dadurch nicht gelöscht.")) return;
         const previous = entries;
+        const previousUndo = deletedEntry;
+        if (!storeDeletedEntry(null)) {
+          setStatus("Die Liste konnte nicht sicher geändert werden. Vorhandene Einträge blieben erhalten.", true);
+          return;
+        }
         entries = [];
-        if (!persist()) entries = previous;
+        if (!persist()) {
+          entries = previous;
+          deletedEntry = previousUndo;
+          storeDeletedEntry(previousUndo);
+        }
         else {
           deletedEntry = null;
-          undoNotice.hidden = true;
         }
         render();
       });
@@ -592,7 +645,7 @@
           return;
         }
         deletedEntry = null;
-        undoNotice.hidden = true;
+        storeDeletedEntry(null);
         render();
         setStatus(`„${item.name}“ wurde wiederhergestellt.`);
       });
@@ -604,3 +657,17 @@
 </html>
 
 
+157:          <button class="secondary" id="undo-delete" type="button">Rückgängig</button>
+187:  <footer><div class="wrap">Vorrat im Blick · Version 0.10.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+195:      const UNDO_KEY = `${STORAGE_KEY}.last-deleted.v1`;
+211:      let deletedEntry = readDeletedEntry();
+224:      function storeDeletedEntry(record) {
+226:          localStorage.setItem(UNDO_KEY, JSON.stringify(record));
+233:      function readDeletedEntry() {
+235:          const raw = localStorage.getItem(UNDO_KEY);
+241:            storeDeletedEntry(null);
+525:            if (!storeDeletedEntry(nextUndo)) {
+534:              storeDeletedEntry(previousUndo);
+620:        if (!storeDeletedEntry(null)) {
+628:          storeDeletedEntry(previousUndo);
+648:        storeDeletedEntry(null);
