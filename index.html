@@ -43,6 +43,8 @@
     .notice { border-left: 5px solid #d78b38; background: #fff4dc; padding: .9rem 1rem; border-radius: .25rem .7rem .7rem .25rem; margin-bottom: 1rem; }
     .notice strong { display: block; margin-bottom: .15rem; }
     .notice p { margin: 0; }
+    .quickstart { margin-bottom: 1rem; }
+    .quickstart p { margin: 0; }
     .layout { display: grid; grid-template-columns: minmax(250px, 340px) minmax(0, 1fr); gap: 1rem; align-items: start; }
     .card { background: var(--card); border: 1px solid var(--line); border-radius: 1rem; padding: 1rem; box-shadow: 0 5px 18px #1e3a2c0b; }
     h2 { margin: 0 0 .8rem; font-size: 1.2rem; letter-spacing: -.015em; }
@@ -135,7 +137,7 @@
       <strong>Datumsangaben sind nur deine Notizen.</strong>
       <p>Dieser Planer bewertet weder Haltbarkeit noch Lebensmittelsicherheit. Verlasse dich dafür nicht auf eine Markierung oder ein Datum in dieser Liste.</p>
     </aside>
-    <aside class="notice" id="storage-warning" role="alert" hidden>
+    <section class="card quickstart" aria-labelledby="quickstart-title">\n      <h2 id="quickstart-title">So funktioniert deine Vorratsliste</h2>\n      <p>Trage Lebensmittel mit Menge und Fach ein, zum Beispiel im Gefrierschrank oder Vorratsschrank. Durchsuche die Liste später nach einem Artikel und sichere sie bei Bedarf als CSV, um sie auf einem anderen Gerät wiederherzustellen.</p>\n    </section>\n    <aside class="notice" id="storage-warning" role="alert" hidden>
       <strong id="storage-warning-title">Gespeicherte Daten konnten nicht vollständig gelesen werden.</strong>
       <p id="storage-warning-text">Prüfe die Sicherung, bevor du weitere Änderungen vornimmst.</p>
       <button class="secondary screen-only" id="download-recovery" type="button" hidden>Wiederherstellungskopie herunterladen</button>
@@ -225,7 +227,7 @@
 
   <footer>
     <div class="wrap">
-      Vorrat im Blick · Version 0.19.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.
+      Vorrat im Blick · Version 0.19.1 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.
     </div>
   </footer>
 
