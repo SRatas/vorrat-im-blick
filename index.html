@@ -148,8 +148,9 @@
 
           <label><input id="item-soon" name="soon" type="checkbox"> Manuell als „bald verwenden“ markieren</label>
           <div class="actions">
-            <button class="primary" type="submit">Eintrag speichern</button>
-            <button class="secondary" type="reset">Leeren</button>
+            <button class="primary" id="save-entry" type="submit">Eintrag speichern</button>
+            <button class="secondary" id="clear-form" type="button">Leeren</button>
+            <button class="secondary" id="cancel-edit" type="button" hidden>Bearbeitung abbrechen</button>
           </div>
           <p id="status" role="status" aria-live="polite"></p>
         </form>
@@ -193,7 +194,7 @@
     </div>
   </main>
 
-  <footer><div class="wrap">Vorrat im Blick · Version 0.12.1 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
+  <footer><div class="wrap">Vorrat im Blick · Version 0.13.0 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.</div></footer>
 
   <script>
     "use strict";
@@ -215,6 +216,10 @@
       const backupReminderText = document.getElementById("backup-reminder-text");
       const undoNotice = document.getElementById("undo-notice");
       const undoMessage = document.getElementById("undo-message");
+      const formTitle = document.getElementById("form-title");
+      const saveEntryButton = document.getElementById("save-entry");
+      const cancelEditButton = document.getElementById("cancel-edit");
+      let editingId = null;
       let recoveryRaw = "";
       let entries = readEntries();
       let deletedEntry = readDeletedEntry();
@@ -379,6 +384,29 @@
         return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       }
 
+      function stopEditing(clear = true) {
+        editingId = null;
+        formTitle.textContent = "Eintrag hinzufügen";
+        saveEntryButton.textContent = "Eintrag speichern";
+        cancelEditButton.hidden = true;
+        if (clear) form.reset();
+      }
+
+      function startEditing(item) {
+        editingId = item.id;
+        form.elements.name.value = item.name;
+        form.elements.quantity.value = item.quantity;
+        form.elements.location.value = item.location;
+        form.elements.added.value = item.added;
+        form.elements.packageDate.value = item.packageDate;
+        form.elements.note.value = item.note;
+        form.elements.soon.checked = item.soon;
+        formTitle.textContent = "Eintrag bearbeiten";
+        saveEntryButton.textContent = "Änderungen speichern";
+        cancelEditButton.hidden = false;
+        document.getElementById("item-name").focus();
+      }
+
       function importCsv(text) {
         const cleanText = text.replace(/^\uFEFF/, "");
         let rows = parseCsv(cleanText, ";");
@@ -521,6 +549,12 @@
           const action = document.createElement("td");
           action.className = "row-action";
           action.dataset.label = "Aktion";
+          const edit = document.createElement("button");
+          edit.className = "secondary row-delete";
+          edit.type = "button";
+          edit.textContent = "Bearbeiten";
+          edit.setAttribute("aria-label", `${item.name} bearbeiten`);
+          edit.addEventListener("click", () => startEditing(item));
           const remove = document.createElement("button");
           remove.className = "danger row-delete";
           remove.type = "button";
@@ -545,9 +579,10 @@
               return;
             }
             deletedEntry = nextUndo;
+            if (editingId === item.id) stopEditing();
             render();
           });
-          action.append(remove);
+          action.append(edit, remove);
           tr.append(action);
           list.append(tr);
         }
@@ -562,8 +597,8 @@
         const name = String(data.get("name") || "").trim();
         if (!name) return;
         const previous = entries;
-        entries = [{
-          id: newId(),
+        const updatedEntry = {
+          id: editingId || newId(),
           name,
           quantity: String(data.get("quantity") || "").trim(),
           location: String(data.get("location") || "").trim(),
@@ -571,15 +606,32 @@
           packageDate: String(data.get("packageDate") || ""),
           note: String(data.get("note") || "").trim(),
           soon: document.getElementById("item-soon").checked
-        }, ...entries];
+        };
+        if (editingId) {
+          const index = entries.findIndex(item => item.id === editingId);
+          if (index < 0) {
+            setStatus("Dieser Eintrag ist nicht mehr vorhanden. Die Liste wurde nicht verändert.", true);
+            stopEditing();
+            return;
+          }
+          entries = entries.map(item => item.id === editingId ? updatedEntry : item);
+        } else {
+          entries = [updatedEntry, ...entries];
+        }
         if (!persist()) {
           entries = previous;
           render();
           return;
         }
-        form.reset();
+        stopEditing();
         render();
         document.getElementById("item-name").focus();
+      });
+
+      document.getElementById("clear-form").addEventListener("click", () => stopEditing());
+      cancelEditButton.addEventListener("click", () => {
+        stopEditing();
+        setStatus("Bearbeitung abgebrochen.");
       });
 
       search.addEventListener("input", render);
@@ -638,6 +690,7 @@
         }
         else {
           deletedEntry = null;
+          stopEditing();
         }
         render();
       });
