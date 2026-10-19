@@ -56,6 +56,9 @@
     input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid #edb458; outline-offset: 2px; }
     textarea { min-height: 4.3rem; resize: vertical; }
     .field-note { display: block; margin-top: .25rem; color: var(--muted); font-size: .78rem; font-weight: 400; }
+    .optional-fields { margin-top: .85rem; border-top: 1px solid var(--line); padding-top: .6rem; }
+    .optional-fields > summary { color: var(--green-dark); cursor: pointer; font-weight: 700; }
+    .optional-fields-body { padding-top: .2rem; }
     .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .9rem; }
     button { border: 1px solid transparent; border-radius: .6rem; padding: .58rem .8rem; cursor: pointer; font-weight: 720; }
     button:hover { filter: brightness(.96); }
@@ -165,17 +168,22 @@
           <label for="item-location">Bereich oder Fach</label>
           <input id="item-location" name="location" type="text" maxlength="80" autocomplete="off" placeholder="z. B. Gefrierfach oben">
 
-          <label for="item-date">Eingetragen am</label>
-          <input id="item-date" name="added" type="date">
+          <details class="optional-fields" id="optional-fields">
+            <summary>Weitere Angaben (optional)</summary>
+            <div class="optional-fields-body">
+              <label for="item-date">Eingetragen am</label>
+              <input id="item-date" name="added" type="date">
 
-          <label for="item-package-date">Datum laut Verpackung (optional)</label>
-          <input id="item-package-date" name="packageDate" type="date">
-          <span class="field-note">Wird unverändert gespeichert und nicht bewertet.</span>
+              <label for="item-package-date">Datum laut Verpackung</label>
+              <input id="item-package-date" name="packageDate" type="date">
+              <span class="field-note">Wird unverändert gespeichert und nicht bewertet.</span>
 
-          <label for="item-note">Notiz</label>
-          <textarea id="item-note" name="note" maxlength="240" placeholder="Optional"></textarea>
+              <label for="item-note">Notiz</label>
+              <textarea id="item-note" name="note" maxlength="240" placeholder="Optional"></textarea>
 
-          <label><input id="item-soon" name="soon" type="checkbox"> Manuell als „bald verwenden“ markieren</label>
+              <label><input id="item-soon" name="soon" type="checkbox"> Manuell als „bald verwenden“ markieren</label>
+            </div>
+          </details>
           <div class="actions">
             <button class="primary" id="save-entry" type="submit">Eintrag speichern</button>
             <button class="secondary" id="clear-form" type="button">Leeren</button>
@@ -231,7 +239,7 @@
 
   <footer>
     <div class="wrap">
-      Vorrat im Blick · Version 0.19.3 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.
+      Vorrat im Blick · Version 0.19.4 · Eine lokale Organisationshilfe, keine Haltbarkeits- oder Sicherheitsberatung.
     </div>
   </footer>
 
@@ -265,6 +273,7 @@
       const formTitle = document.getElementById("form-title");
       const saveEntryButton = document.getElementById("save-entry");
       const cancelEditButton = document.getElementById("cancel-edit");
+      const optionalFields = document.getElementById("optional-fields");
       let editingId = null;
       let recoveryRaw = "";
       let storageReadBlocked = false;
@@ -592,6 +601,7 @@
         if (clear) {
           form.reset();
           setTodayDate();
+          optionalFields.open = false;
         }
       }
 
@@ -604,6 +614,7 @@
         form.elements.packageDate.value = item.packageDate;
         form.elements.note.value = item.note;
         form.elements.soon.checked = item.soon;
+        optionalFields.open = Boolean(item.added !== form.elements.added.defaultValue || item.packageDate || item.note || item.soon);
         formTitle.textContent = "Eintrag bearbeiten";
         saveEntryButton.textContent = "Änderungen speichern";
         cancelEditButton.hidden = false;
