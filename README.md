@@ -1,6 +1,6 @@
 # Vorrat im Blick
 
-**Version:** 0.19.3  
+**Version:** 0.19.4  
 **Web-App öffnen:** [Vorrat im Blick](https://sratas.github.io/vorrat-im-blick/)  
 **Projektstand:** 18.10.2026
 
@@ -13,6 +13,7 @@ Trage ein Lebensmittel mit Menge und Fach ein. Du kannst die Liste später durch
 ## Benutzung
 
 - Artikel, Menge, Bereich, Datumsnotizen und eigene Notizen eintragen.
+- Beim Hinzufügen sind optionale Zusatzangaben zunächst eingeklappt; beim Bearbeiten werden vorhandene Zusatzangaben automatisch geöffnet.
 - Einträge suchen, bearbeiten, löschen und als „bald verwenden“ markieren.
 - Eine CSV-Sicherung herunterladen und CSV- oder Wiederherstellungsdateien wieder einlesen. Beim Import werden neue Einträge ergänzt; bereits vorhandene gleiche Einträge werden übersprungen.
 - Die Liste drucken. Nach dem ersten Online-Aufruf lässt sie sich in unterstützten Browsern auch offline öffnen.
