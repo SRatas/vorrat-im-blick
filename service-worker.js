@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "vorrat-im-blick-offline-v4";
+const CACHE_NAME = "vorrat-im-blick-offline-v5";
 const APP_SHELL_URL = new URL("./", self.registration.scope).href;
 const APP_SHELL_ASSETS = [
   APP_SHELL_URL,
